@@ -109,6 +109,7 @@ app.listen(PORT, () => {
 
   console.log('  DRAFT TRAILS (JSON Storage):');
   console.log(`    POST   http://localhost:${PORT}/api/draft-trails`);
+  console.log(`    GET    http://localhost:${PORT}/api/draft-trails/user/:userId (user's drafts)`);
   console.log(`    GET    http://localhost:${PORT}/api/draft-trails/:referenceCode`);
   console.log(`    PUT    http://localhost:${PORT}/api/draft-trails/:referenceCode/status`);
   console.log(`    DELETE http://localhost:${PORT}/api/draft-trails/:referenceCode`);

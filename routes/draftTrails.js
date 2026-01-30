@@ -72,6 +72,64 @@ router.post('/', (req, res) => {
 });
 
 /**
+ * GET /api/draft-trails/user/:userId
+ * Retrieve all draft trails for a specific user
+ */
+router.get('/user/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`\n📍 GET /api/draft-trails/user/:userId - Fetching drafts for user: ${userId}`);
+
+    if (!userId) {
+      console.log(`❌ Missing userId parameter`);
+      return res.status(400).json({
+        error: 'Missing required parameter: userId',
+      });
+    }
+
+    // Clean up expired drafts first
+    console.log(`🧹 Cleaning up expired drafts...`);
+    dataStore.cleanupExpiredDrafts();
+
+    // Get all drafts and filter by userId
+    const allDrafts = dataStore.readDraftTrails();
+    console.log(`📚 Total drafts in database: ${allDrafts.length}`);
+
+    const userDrafts = allDrafts
+      .filter(draft => {
+        const isUserDraft = draft.userId === userId;
+        const isNotExpired = !isExpired(draft.expiresAt);
+        if (isUserDraft) {
+          console.log(`  ✓ Found draft: ${draft.referenceCode} (Status: ${draft.status})`);
+        }
+        return isUserDraft && isNotExpired;
+      })
+      .map(draft => ({
+        ...draft,
+        daysRemaining: getDaysRemaining(draft.expiresAt),
+        isExpired: isExpired(draft.expiresAt),
+      }));
+
+    console.log(`✅ Retrieved ${userDrafts.length} active draft(s) for user ${userId}`);
+    if (userDrafts.length > 0) {
+      userDrafts.forEach(draft => {
+        console.log(`   • ${draft.referenceCode} - ${draft.status} (${draft.daysRemaining} days remaining)`);
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      userId,
+      total: userDrafts.length,
+      drafts: userDrafts,
+    });
+  } catch (error) {
+    console.error('❌ Error retrieving user draft trails:', error);
+    res.status(500).json({ error: 'Failed to retrieve user draft trails' });
+  }
+});
+
+/**
  * GET /api/draft-trails/:referenceCode
  * Retrieve a draft trail by reference code
  */
