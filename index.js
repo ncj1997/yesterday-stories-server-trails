@@ -23,7 +23,7 @@ const videosRouter = require('./routes/videos');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
+//hello
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
@@ -107,12 +107,19 @@ app.listen(PORT, () => {
 
   console.log('📡 Available Endpoints:\n');
 
-  console.log('  DRAFT TRAILS (JSON Storage):');
+  console.log('  DRAFT TRAILS (JSON Storage) - Token-Based Authentication:');
   console.log(`    POST   http://localhost:${PORT}/api/draft-trails`);
-  console.log(`    GET    http://localhost:${PORT}/api/draft-trails/user/:userId (user's drafts)`);
+  console.log(`           (Returns token for authenticated requests)\n`);
+  console.log(`    GET    http://localhost:${PORT}/api/draft-trails/my-drafts`);
+  console.log(`           (Requires: Authorization: Bearer <token>)\n`);
   console.log(`    GET    http://localhost:${PORT}/api/draft-trails/:referenceCode`);
+  console.log(`           (Get specific draft by reference code)\n`);
   console.log(`    PUT    http://localhost:${PORT}/api/draft-trails/:referenceCode/status`);
+  console.log(`           (Requires: Authorization: Bearer <token>)\n`);
   console.log(`    DELETE http://localhost:${PORT}/api/draft-trails/:referenceCode`);
+  console.log(`           (Requires: Authorization: Bearer <token>)\n`);
+  console.log(`    GET    http://localhost:${PORT}/api/draft-trails/user/:userId`);
+  console.log(`           (DEPRECATED - Use /my-drafts with token instead)\n`);
   console.log(`    GET    http://localhost:${PORT}/api/draft-trails (all drafts)\n`);
 
   console.log('  IMAGE UPLOADS:');
