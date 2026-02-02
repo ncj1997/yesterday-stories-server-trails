@@ -1,42 +1,63 @@
 /**
  * Image Upload Routes
- * Handles image uploads and serving uploaded files
+ * Handles image uploads to Cloudinary and serves uploaded files
  */
 
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const { v2: cloudinary } = require('cloudinary');
+const { Readable } = require('stream');
 const router = express.Router();
 
-const PORT = process.env.PORT || 3001;
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+// Configure Cloudinary
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 /**
  * POST /api/images
- * Upload an image file and return the URL
+ * Upload an image file to Cloudinary and return the URL
  * Expects: multipart/form-data with 'image' field
  */
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Generate the image URL (relative path that the client can access)
-    const imageUrl = `/uploads/${req.file.filename}`;
-    
-    console.log(`✅ Image uploaded: ${req.file.filename}`);
-    console.log(`   URL: http://localhost:${PORT}${imageUrl}`);
-    console.log(`   Size: ${req.file.size} bytes`);
+    // Stream the file buffer directly to Cloudinary
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'auto',
+        folder: 'yesterday-stories/images', // Organize uploads in Cloudinary
+        use_filename: true,
+        unique_filename: true,
+      },
+      (error, result) => {
+        if (error) {
+          console.error('❌ Cloudinary upload error:', error);
+          return res.status(500).json({ error: 'Failed to upload image to Cloudinary' });
+        }
 
-    res.status(201).json({
-      success: true,
-      message: 'Image uploaded successfully',
-      imageUrl, // Relative URL for client to use
-      filename: req.file.filename,
-      size: req.file.size,
-      fullUrl: `http://localhost:${PORT}${imageUrl}`, // Full URL for reference
-    });
+        console.log(`✅ Image uploaded to Cloudinary: ${result.public_id}`);
+        console.log(`   URL: ${result.secure_url}`);
+        console.log(`   Size: ${result.bytes} bytes`);
+
+        res.status(201).json({
+          success: true,
+          message: 'Image uploaded successfully',
+          imageUrl: result.secure_url,
+          publicId: result.public_id,
+          size: result.bytes,
+          width: result.width,
+          height: result.height,
+        });
+      }
+    );
+
+    // Convert buffer to stream and pipe to Cloudinary
+    Readable.from(req.file.buffer).pipe(stream);
   } catch (error) {
     console.error('❌ Error uploading image:', error);
     res.status(500).json({ error: 'Failed to upload image' });
@@ -44,26 +65,27 @@ router.post('/', (req, res) => {
 });
 
 /**
- * GET /uploads/:filename
- * Serve uploaded images
+ * DELETE /api/images/:publicId
+ * Delete an image from Cloudinary
  */
-router.get('/:filename', (req, res) => {
+router.delete('/:publicId', async (req, res) => {
   try {
-    const filepath = path.join(uploadsDir, req.params.filename);
+    const { publicId } = req.params;
     
-    // Security: prevent directory traversal
-    if (!filepath.startsWith(uploadsDir)) {
-      return res.status(403).json({ error: 'Forbidden' });
+    // Reconstruct the full public_id with folder
+    const fullPublicId = `yesterday-stories/images/${publicId}`;
+    
+    const result = await cloudinary.uploader.destroy(fullPublicId);
+    
+    if (result.result === 'ok') {
+      console.log(`✅ Image deleted: ${fullPublicId}`);
+      res.json({ success: true, message: 'Image deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'Image not found' });
     }
-
-    if (!fs.existsSync(filepath)) {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-
-    res.sendFile(filepath);
   } catch (error) {
-    console.error('❌ Error serving image:', error);
-    res.status(500).json({ error: 'Failed to serve image' });
+    console.error('❌ Error deleting image:', error);
+    res.status(500).json({ error: 'Failed to delete image' });
   }
 });
 

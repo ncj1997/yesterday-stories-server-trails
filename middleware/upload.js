@@ -1,33 +1,14 @@
 /**
  * Multer Configuration & Middleware
- * Handles file upload configuration
+ * Handles file upload configuration with Cloudinary storage
  */
 
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-
-// Ensure uploads directory exists
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename with timestamp
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(7);
-    const ext = path.extname(file.originalname);
-    const filename = `${timestamp}-${random}${ext}`;
-    cb(null, filename);
-  }
-});
+// Use memory storage instead of disk storage
+// Files will be streamed directly to Cloudinary
+const storage = multer.memoryStorage();
 
 // Configure multer with validation for images
 const upload = multer({

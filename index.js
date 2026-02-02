@@ -5,12 +5,13 @@
  * 
  * Features:
  * - Draft trail management with 7-day expiration
- * - Image upload and serving
+ * - Image upload and serving via Cloudinary
  * - Video upload and serving
  * - Reference code system for payment resume
  * - JSON file storage for mock server testing
  */
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -23,7 +24,6 @@ const videosRouter = require('./routes/videos');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-//hello
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
