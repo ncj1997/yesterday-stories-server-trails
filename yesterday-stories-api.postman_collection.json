@@ -1,0 +1,220 @@
+{
+  "info": {
+    "name": "Yesterday Stories Serverless API",
+    "description": "API collection for Draft Trails and File Uploads",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if API is healthy"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Draft Trails",
+      "item": [
+        {
+          "name": "Create Draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referenceCode\": \"DRAFT-{{$timestamp}}\",\n  \"userId\": \"user-123\",\n  \"userEmail\": \"user@example.com\",\n  \"trailData\": {\n    \"step\": 1,\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"story\": \"This is my yesterday story\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/draft-trails",
+              "host": ["{{baseUrl}}"],
+              "path": ["draft-trails"]
+            },
+            "description": "Create a new draft trail"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Draft by Reference Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/draft-trails/{{referenceCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["draft-trails", "{{referenceCode}}"]
+            },
+            "description": "Get a specific draft by reference code"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Drafts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/draft-trails/user/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["draft-trails", "user", "{{userId}}"]
+            },
+            "description": "Get all drafts for a specific user"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trailData\": {\n    \"step\": 2,\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"story\": \"Updated story with more details\",\n    \"photos\": [\"photo1.jpg\", \"photo2.jpg\"]\n  },\n  \"status\": \"submitted\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/draft-trails/{{referenceCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["draft-trails", "{{referenceCode}}"]
+            },
+            "description": "Update an existing draft"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Draft",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/draft-trails/{{referenceCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["draft-trails", "{{referenceCode}}"]
+            },
+            "description": "Delete (soft delete) a draft"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "referenceCode",
+                "value": "{{referenceCode}}"
+              },
+              {
+                "key": "userId",
+                "value": "{{userId}}"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": ""
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/images",
+              "host": ["{{baseUrl}}"],
+              "path": ["images"]
+            },
+            "description": "Upload an image to S3"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "referenceCode",
+                "value": "{{referenceCode}}"
+              },
+              {
+                "key": "userId",
+                "value": "{{userId}}"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": ""
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/videos",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos"]
+            },
+            "description": "Upload a video to S3"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Files for Draft",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{referenceCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{referenceCode}}"]
+            },
+            "description": "Get all files (images and videos) for a draft"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/dev",
+      "type": "string"
+    },
+    {
+      "key": "referenceCode",
+      "value": "DRAFT-001",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "user-123",
+      "type": "string"
+    },
+    {
+      "key": "userEmail",
+      "value": "user@example.com",
+      "type": "string"
+    }
+  ]
+}

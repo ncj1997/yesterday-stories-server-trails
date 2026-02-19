@@ -1,0 +1,171 @@
+service: yesterday-stories-serverless
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ${env:AWS_REGION, 'us-east-1'}
+  architecture: arm64
+  memorySize: 512
+  timeout: 30
+  
+  environment:
+    # Database Configuration
+    DB_HOST: ${env:DB_HOST, 'localhost'}
+    DB_USER: ${env:DB_USER, 'root'}
+    DB_PASSWORD: ${env:DB_PASSWORD, 'password'}
+    DB_NAME: ${env:DB_NAME, 'yesterday_stories'}
+    
+    # AWS Configuration
+    AWS_REGION: ${self:provider.region}
+    S3_BUCKET: ${self:custom.s3BucketName}
+    
+    # Environment Stage
+    STAGE: ${sls:stage}
+  
+  # IAM Permissions for Lambda
+  iam:
+    role:
+      statements:
+        # S3 Permissions
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:GetObject
+          Resource: 'arn:aws:s3:::${self:custom.s3BucketName}/*'
+        
+        # CloudWatch Logs
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: 'arn:aws:logs:*:*:*'
+
+functions:
+  # Main API Handler
+  api:
+    handler: src/index.handler
+    events:
+      # Draft Trails
+      - http:
+          path: draft-trails
+          method: post
+          cors: true
+      - http:
+          path: draft-trails/{referenceCode}
+          method: get
+          cors: true
+      - http:
+          path: draft-trails/{referenceCode}
+          method: put
+          cors: true
+      - http:
+          path: draft-trails/{referenceCode}
+          method: delete
+          cors: true
+      - http:
+          path: draft-trails/user/{userId}
+          method: get
+          cors: true
+      
+      # File Uploads
+      - http:
+          path: images
+          method: post
+          cors: true
+      - http:
+          path: videos
+          method: post
+          cors: true
+      
+      # File Retrieval
+      - http:
+          path: files/{referenceCode}
+          method: get
+          cors: true
+      
+      # Health Check
+      - http:
+          path: health
+          method: get
+          cors: true
+
+  # Scheduled cleanup of expired drafts (run daily)
+  cleanupExpiredDrafts:
+    handler: src/handlers/cleanup.handler
+    events:
+      - schedule:
+          rate: cron(0 2 * * ? *)  # 2 AM UTC daily
+          enabled: true
+    timeout: 60
+
+# Plugins
+plugins:
+  - serverless-offline
+  - serverless-dotenv-plugin
+
+# Custom settings
+custom:
+  s3BucketName: yesterday-stories-uploads-${sls:stage, 'dev'}-${env:AWS_ACCOUNT_ID, '123456789012'}
+  
+  serverless-offline:
+    httpPort: 3001
+    websocketPort: 3002
+
+# S3 Bucket for file uploads
+resources:
+  Resources:
+    S3BucketForUploads:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3BucketName}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+              AllowedOrigins:
+                - '*'
+              MaxAgeSeconds: 3000
+        Tags:
+          - Key: Environment
+            Value: ${sls:stage}
+          - Key: Application
+            Value: yesterday-stories
+
+    S3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref S3BucketForUploads
+        PolicyText:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: !Sub '${S3BucketForUploads.Arn}/*'
+
+outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value:
+      Fn::Sub: 'https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}'
+  
+  S3BucketName:
+    Description: S3 Bucket for file uploads
+    Value: !Ref S3BucketForUploads
+  
+  S3BucketArn:
+    Description: S3 Bucket ARN
+    Value: !GetAtt S3BucketForUploads.Arn
