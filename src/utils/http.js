@@ -37,6 +37,10 @@ const httpResponse = {
     return httpResponse.error(message, 401);
   },
 
+  forbidden: (message = 'Forbidden') => {
+    return httpResponse.error(message, 403);
+  },
+
   serverError: (message = 'Internal server error') => {
     return httpResponse.error(message, 500);
   },

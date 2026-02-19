@@ -1,48 +1,77 @@
 /**
  * Authentication Middleware
  * Validates tokens from Authorization header
+ * Supports both database tokens and Firebase ID tokens
  */
 
 const { query } = require('../db/mysql');
 
-const authMiddleware = async (event) => {
+/**
+ * Verify authentication token
+ * Returns { authenticated: true, userId: 'user-id' } on success
+ * Returns { authenticated: false, message: 'error message' } on failure
+ */
+const verifyAuthToken = async (event) => {
   try {
     const authHeader = event.headers?.Authorization || event.headers?.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Missing or invalid Authorization header' }),
+        authenticated: false,
+        message: 'Missing or invalid Authorization header',
       };
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-    // Verify token in database
+    // Try to verify token in database
     const results = await query(
       `SELECT userId FROM tokens 
        WHERE token = ? AND expiresAt > NOW()`,
       [token]
     );
 
-    if (results.length === 0) {
+    if (results.length > 0) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Invalid or expired token' }),
+        authenticated: true,
+        userId: results[0].userId,
       };
     }
 
+    // Token not found in database or expired
     return {
-      authenticated: true,
-      userId: results[0].userId,
+      authenticated: false,
+      message: 'Invalid or expired token',
     };
   } catch (error) {
-    console.error('❌ Auth error:', error);
+    console.error('❌ Auth verification error:', error);
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Authentication error' }),
+      authenticated: false,
+      message: 'Authentication error',
     };
   }
+};
+
+/**
+ * Middleware function for lambda handlers
+ */
+const authMiddleware = async (event) => {
+  const authResult = await verifyAuthToken(event);
+  
+  if (!authResult.authenticated) {
+    return {
+      statusCode: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ 
+        error: authResult.message || 'Unauthorized' 
+      }),
+    };
+  }
+
+  return authResult;
 };
 
 /**
@@ -63,6 +92,7 @@ const requireAuth = (handler) => {
 };
 
 module.exports = {
+  verifyAuthToken,
   authMiddleware,
   requireAuth,
 };

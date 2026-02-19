@@ -44,6 +44,7 @@ const draftTrailsService = {
 
       // Calculate expiration (7 days from now)
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
 
       const result = await query(
         `INSERT INTO draft_trails 
@@ -54,7 +55,7 @@ const draftTrailsService = {
           dbUserId,
           JSON.stringify(trailData),
           'draft',
-          expiresAt.toISOString().slice(0, 19).replace('T', ' '),
+          expiresAtStr,
         ]
       );
 
@@ -63,6 +64,7 @@ const draftTrailsService = {
         referenceCode,
         userId,
         email,
+        expiresAt: expiresAt.toISOString(),
         daysRemaining: 7,
       };
     } catch (error) {
@@ -192,6 +194,87 @@ const draftTrailsService = {
       return result.affectedRows > 0;
     } catch (error) {
       console.error('❌ Error in deleteDraftTrail:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Mark draft as paid and published
+   */
+  async markDraftAsPaid(referenceCode) {
+    try {
+      const publishedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const result = await query(
+        `UPDATE draft_trails 
+         SET isPaid = TRUE, status = 'payment_completed', publishedAt = ? 
+         WHERE referenceCode = ?`,
+        [publishedAt, referenceCode]
+      );
+
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('❌ Error in markDraftAsPaid:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get published trails (isPaid = TRUE)
+   */
+  async getPublishedTrails(options = {}) {
+    try {
+      const { sortBy = 'distance', difficulty, limit = 50, offset = 0 } = options;
+
+      let sql = `SELECT dt.*, u.userId, u.email 
+                 FROM draft_trails dt
+                 JOIN users u ON dt.userId = u.id
+                 WHERE dt.isPaid = TRUE AND dt.isDeleted = FALSE`;
+
+      const params = [];
+
+      // Filter by difficulty if provided
+      if (difficulty) {
+        sql += ` AND JSON_EXTRACT(dt.trailData, '$.difficulty') = ?`;
+        params.push(difficulty);
+      }
+
+      // Sort
+      if (sortBy === 'newest') {
+        sql += ` ORDER BY dt.publishedAt DESC`;
+      } else if (sortBy === 'difficulty') {
+        sql += ` ORDER BY JSON_EXTRACT(dt.trailData, '$.difficulty') ASC`;
+      } else {
+        // Default to distance
+        sql += ` ORDER BY CAST(JSON_EXTRACT(dt.trailData, '$.distance') AS DECIMAL) ASC`;
+      }
+
+      sql += ` LIMIT ? OFFSET ?`;
+      params.push(limit, offset);
+
+      const results = await query(sql, params);
+
+      return results.map(trail => ({
+        id: trail.id,
+        title: JSON.parse(trail.trailData).title,
+        description: JSON.parse(trail.trailData).description,
+        difficulty: JSON.parse(trail.trailData).difficulty,
+        distance: parseFloat(JSON.parse(trail.trailData).distance),
+        headerImages: JSON.parse(trail.trailData).headerImages || [],
+        stories: (JSON.parse(trail.trailData).customStories || []).map(story => ({
+          id: story.id,
+          title: story.title,
+          latitude: story.latitude,
+          longitude: story.longitude,
+          description: story.description,
+          imageUrls: story.imageUrls || [],
+          videoUrl: story.videoUrl,
+        })),
+        userId: trail.userId,
+        publishedAt: trail.publishedAt,
+        distanceToTrail: -1, // Would be calculated if user location provided
+      }));
+    } catch (error) {
+      console.error('❌ Error in getPublishedTrails:', error);
       throw error;
     }
   },

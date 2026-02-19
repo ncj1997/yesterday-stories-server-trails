@@ -5,6 +5,7 @@
 
 const draftTrailsHandlers = require('./draftTrails');
 const filesHandlers = require('./files');
+const paymentsHandler = require('./payments');
 const { httpResponse } = require('../utils/http');
 
 const router = async (event, context) => {
@@ -20,16 +21,38 @@ const router = async (event, context) => {
         return draftTrailsHandlers.saveDraftTrail(event);
       }
       if (httpMethod === 'GET') {
-        if (path.includes('/user/')) {
+        // GET /draft-trails/my-drafts - requires auth
+        if (path.includes('/my-drafts') || path.endsWith('/my-drafts')) {
           return draftTrailsHandlers.getUserDraftTrails(event);
         }
+        // GET /draft-trails/:code - public
         return draftTrailsHandlers.getDraftTrail(event);
       }
       if (httpMethod === 'PUT') {
-        return draftTrailsHandlers.updateDraftTrail(event);
+        // PUT /draft-trails/:code/update - requires auth
+        if (path.includes('/update')) {
+          return draftTrailsHandlers.updateDraftTrailData(event);
+        }
+        // PUT /draft-trails/:code/paid - requires auth
+        if (path.includes('/paid')) {
+          return draftTrailsHandlers.markDraftAsPaid(event);
+        }
+        // PUT /draft-trails/:code/status - requires auth
+        if (path.includes('/status')) {
+          return draftTrailsHandlers.updateDraftStatus(event);
+        }
+        // Fallback for generic update
+        return draftTrailsHandlers.updateDraftTrailData(event);
       }
       if (httpMethod === 'DELETE') {
         return draftTrailsHandlers.deleteDraftTrail(event);
+      }
+    }
+
+    // Published Trails Routes
+    if (path === '/trails' || path === '/trails/') {
+      if (httpMethod === 'GET') {
+        return draftTrailsHandlers.getPublishedTrails(event);
       }
     }
 
@@ -50,6 +73,15 @@ const router = async (event, context) => {
     if (path.startsWith('/files')) {
       if (httpMethod === 'GET') {
         return filesHandlers.getFilesByReference(event);
+      }
+    }
+
+    // Payments Routes
+    if (path.startsWith('/payments')) {
+      if (httpMethod === 'POST') {
+        if (path.includes('/create-intent')) {
+          return paymentsHandler.createPaymentIntent(event);
+        }
       }
     }
 

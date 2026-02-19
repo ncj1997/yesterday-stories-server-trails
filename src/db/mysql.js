@@ -64,19 +64,21 @@ const initializeDatabase = async () => {
         referenceCode VARCHAR(100) NOT NULL UNIQUE,
         userId INT NOT NULL,
         trailData LONGTEXT NOT NULL,
-        status ENUM('draft', 'submitted', 'completed', 'expired') DEFAULT 'draft',
+        status ENUM('draft', 'payment_pending', 'payment_completed', 'payment_failed', 'expired', 'submitted', 'completed') DEFAULT 'draft',
         isPaid BOOLEAN DEFAULT FALSE,
         isDeleted BOOLEAN DEFAULT FALSE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expiresAt TIMESTAMP NOT NULL,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        publishedAt TIMESTAMP NULL,
+        expiresAt TIMESTAMP NOT NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_referenceCode (referenceCode),
         INDEX idx_userId (userId),
         INDEX idx_status (status),
         INDEX idx_isPaid (isPaid),
         INDEX idx_createdAt (createdAt),
-        INDEX idx_expiresAt (expiresAt)
+        INDEX idx_expiresAt (expiresAt),
+        INDEX idx_publishedAt (publishedAt)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -114,6 +116,29 @@ const initializeDatabase = async () => {
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_token (token),
         INDEX idx_expiresAt (expiresAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // Create payments table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        referenceCode VARCHAR(100) NOT NULL,
+        userId INT NOT NULL,
+        paymentIntentId VARCHAR(255),
+        amount BIGINT NOT NULL,
+        currency VARCHAR(3) DEFAULT 'AUD',
+        status ENUM('pending', 'completed', 'failed', 'canceled') DEFAULT 'pending',
+        metadata JSON,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (referenceCode) REFERENCES draft_trails(referenceCode) ON DELETE CASCADE,
+        INDEX idx_referenceCode (referenceCode),
+        INDEX idx_userId (userId),
+        INDEX idx_paymentIntentId (paymentIntentId),
+        INDEX idx_status (status),
+        INDEX idx_createdAt (createdAt)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
