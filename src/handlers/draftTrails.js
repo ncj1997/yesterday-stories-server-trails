@@ -23,8 +23,14 @@ const saveDraftTrail = async (event) => {
     const body = parseBody(event);
     const { referenceCode, userId, userEmail, trailData } = body;
 
+    console.log(`[DRAFT] POST /draft-trails - Save new draft`);
+    console.log(`[DRAFT] Reference Code: ${referenceCode}`);
+    console.log(`[DRAFT] User ID: ${userId}`);
+    console.log(`[DRAFT] User Email: ${userEmail}`);
+
     // Validate required fields
     if (!referenceCode || !userId || !userEmail || !trailData) {
+      console.warn(`[DRAFT] ❌ Missing required fields`);
       return httpResponse.error(
         'Missing required fields: referenceCode, userId, userEmail, trailData'
       );
@@ -37,6 +43,9 @@ const saveDraftTrail = async (event) => {
         userEmail,
         trailData
       );
+
+      console.log(`[DRAFT] ✅ Draft created successfully`);
+      console.log(`[DRAFT] Expires At: ${result.expiresAt}`);
 
       return httpResponse.success(
         {
@@ -51,6 +60,7 @@ const saveDraftTrail = async (event) => {
     } catch (error) {
       // Check if it's a duplicate key error
       if (error.code === 'ER_DUP_ENTRY') {
+        console.warn(`[DRAFT] ❌ Duplicate reference code: ${referenceCode}`);
         return httpResponse.error(
           'Duplicate reference code. Please use a unique reference code.',
           409
@@ -61,8 +71,6 @@ const saveDraftTrail = async (event) => {
   } catch (error) {
     console.error('❌ Error saving draft trail:', error);
     return httpResponse.serverError('Failed to save draft trail');
-  }
-};
   }
 };
 
@@ -77,21 +85,28 @@ const getDraftTrail = async (event) => {
     const match = path.match(/\/draft-trails\/([^/?]+)/);
     const referenceCode = match ? match[1] : null;
 
+    console.log(`[DRAFT] GET /draft-trails/:code - Fetch draft`);
+    console.log(`[DRAFT] Reference Code: ${referenceCode}`);
+
     if (!referenceCode) {
+      console.warn(`[DRAFT] ❌ Missing reference code`);
       return httpResponse.error('Missing referenceCode in path');
     }
 
     const draft = await draftTrailsService.getDraftTrail(referenceCode);
 
     if (!draft) {
+      console.warn(`[DRAFT] ❌ Draft not found: ${referenceCode}`);
       return httpResponse.notFound('Draft trail not found');
     }
 
     // Check if expired
     if (new Date(draft.expiresAt) < new Date()) {
+      console.warn(`[DRAFT] ⚠️  Draft expired: ${referenceCode}`);
       return httpResponse.error('Draft trail has expired', 410);
     }
 
+    console.log(`[DRAFT] ✅ Draft found and valid`);
     return httpResponse.success({
       success: true,
       referenceCode: draft.referenceCode,
@@ -117,13 +132,19 @@ const getUserDraftTrails = async (event) => {
   try {
     // Verify authentication
     const authResult = await verifyAuthToken(event);
+    console.log(`[DRAFT] GET /draft-trails/my-drafts - Get user drafts`);
+    console.log(`[DRAFT] Auth Status: ${authResult.authenticated ? '✅ Authenticated' : '❌ Not authenticated'}`);
     if (!authResult.authenticated) {
+      console.warn(`[DRAFT] ❌ ${authResult.message || 'Not authenticated'}`);
       return httpResponse.unauthorized(authResult.message || 'Missing or invalid authentication token');
     }
 
     const userId = authResult.userId;
+    console.log(`[DRAFT] User ID: ${userId}`);
 
     const drafts = await draftTrailsService.getUserDraftTrails(userId);
+
+    console.log(`[DRAFT] ✅ Retrieved ${drafts.length} drafts for user`);
 
     return httpResponse.success({
       success: true,
@@ -143,7 +164,11 @@ const updateDraftTrailData = async (event) => {
   try {
     // Verify authentication
     const authResult = await verifyAuthToken(event);
+    console.log(`[DRAFT] PUT /draft-trails/:code/update - Update draft`);
+    console.log(`[DRAFT] Auth Status: ${authResult.authenticated ? '✅ Authenticated' : '❌ Not authenticated'}`);
+
     if (!authResult.authenticated) {
+      console.warn(`[DRAFT] ❌ ${authResult.message || 'Not authenticated'}`);
       return httpResponse.unauthorized(authResult.message || 'Missing or invalid authentication token');
     }
 
@@ -152,7 +177,10 @@ const updateDraftTrailData = async (event) => {
     const match = path.match(/\/draft-trails\/([^/]+)\//);
     const referenceCode = match ? match[1] : null;
 
+    console.log(`[DRAFT] Reference Code: ${referenceCode}`);
+
     if (!referenceCode) {
+      console.warn(`[DRAFT] ❌ Missing reference code`);
       return httpResponse.error('Missing referenceCode in path');
     }
 
@@ -162,20 +190,26 @@ const updateDraftTrailData = async (event) => {
     // Verify draft exists and user owns it
     const draft = await draftTrailsService.getDraftTrail(referenceCode);
     if (!draft) {
+      console.warn(`[DRAFT] ❌ Draft not found: ${referenceCode}`);
       return httpResponse.notFound('Draft trail not found');
     }
 
+    console.log(`[DRAFT] Draft found. Owner: ${draft.userId}, Current User: ${userId}`);
+
     if (draft.userId !== userId) {
+      console.error(`[DRAFT] ❌ Unauthorized: User ${userId} cannot modify draft of ${draft.userId}`);
       return httpResponse.error('You do not have permission to modify this draft', 403);
     }
 
     // Check if draft is expired
     if (new Date(draft.expiresAt) < new Date()) {
+      console.warn(`[DRAFT] ⚠️  Draft expired: ${referenceCode}`);
       return httpResponse.error('Draft trail has expired', 410);
     }
 
     // Check if draft is already paid (cannot update paid drafts)
     if (draft.isPaid) {
+      console.warn(`[DRAFT] ⚠️  Cannot update paid draft: ${referenceCode}`);
       return httpResponse.error('Cannot update a draft that has already been paid', 400);
     }
 
@@ -187,11 +221,12 @@ const updateDraftTrailData = async (event) => {
     const success = await draftTrailsService.updateDraftTrail(referenceCode, updateData);
 
     if (!success) {
+      console.error(`[DRAFT] ❌ Failed to update draft: ${referenceCode}`);
       return httpResponse.serverError('Failed to update draft trail');
     }
 
     const updatedDraft = await draftTrailsService.getDraftTrail(referenceCode);
-
+    console.log(`[DRAFT] ✅ Draft updated successfully`);
     return httpResponse.success({
       success: true,
       message: 'Draft trail updated successfully',
@@ -269,7 +304,11 @@ const markDraftAsPaid = async (event) => {
   try {
     // Verify authentication
     const authResult = await verifyAuthToken(event);
+    console.log(`[PAYMENT] PUT /draft-trails/:code/paid - Mark as Paid`);
+    console.log(`[PAYMENT] Auth Status: ${authResult.authenticated ? '✅ Authenticated' : '❌ Not authenticated'}`);
+
     if (!authResult.authenticated) {
+      console.warn(`[PAYMENT] ❌ ${authResult.message || 'Not authenticated'}`);
       return httpResponse.unauthorized(authResult.message || 'Missing or invalid authentication token');
     }
 
@@ -277,36 +316,51 @@ const markDraftAsPaid = async (event) => {
     const match = path.match(/\/draft-trails\/([^/]+)\//);
     const referenceCode = match ? match[1] : null;
 
+    console.log(`[PAYMENT] Reference Code: ${referenceCode}`);
+
     if (!referenceCode) {
+      console.warn(`[PAYMENT] ❌ Missing reference code`);
       return httpResponse.error('Missing referenceCode in path');
     }
 
     const userId = authResult.userId;
     const body = parseBody(event);
 
+    console.log(`[PAYMENT] User ID: ${userId}`);
+
     // Verify draft exists and user owns it
     const draft = await draftTrailsService.getDraftTrail(referenceCode);
     if (!draft) {
+      console.warn(`[PAYMENT] ❌ Draft not found: ${referenceCode}`);
       return httpResponse.notFound('Draft trail not found');
     }
 
+    console.log(`[PAYMENT] Draft found. Owner: ${draft.userId}`);
+
     if (draft.userId !== userId) {
+      console.error(`[PAYMENT] ❌ Unauthorized: User ${userId} cannot pay for draft of ${draft.userId}`);
       return httpResponse.error('You do not have permission to modify this draft', 403);
     }
 
     // Check if already paid
     if (draft.isPaid) {
+      console.warn(`[PAYMENT] ⚠️  Draft already paid: ${referenceCode}`);
       return httpResponse.error('Draft has already been paid', 400);
     }
 
     // Mark as paid
+    console.log(`[PAYMENT] Marking draft as paid...`);
     const success = await draftTrailsService.markDraftAsPaid(referenceCode);
 
     if (!success) {
+      console.error(`[PAYMENT] ❌ Failed to mark draft as paid: ${referenceCode}`);
       return httpResponse.serverError('Failed to mark draft as paid');
     }
 
     const updatedDraft = await draftTrailsService.getDraftTrail(referenceCode);
+
+    console.log(`[PAYMENT] ✅ Draft marked as paid successfully`);
+    console.log(`[PAYMENT] Published At: ${new Date().toISOString()}`);
 
     return httpResponse.success({
       success: true,

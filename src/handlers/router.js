@@ -12,8 +12,12 @@ const router = async (event, context) => {
   try {
     const httpMethod = event.httpMethod || event.requestContext?.http?.method;
     const path = event.path || event.rawPath;
+    const requestId = context.requestId || context.awsRequestId || 'unknown';
 
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`[${new Date().toISOString()}] REQUEST ID: ${requestId}`);
     console.log(`📍 ${httpMethod} ${path}`);
+    console.log(`${'='.repeat(80)}`);
 
     // Draft Trails Routes
     if (path.startsWith('/draft-trails')) {

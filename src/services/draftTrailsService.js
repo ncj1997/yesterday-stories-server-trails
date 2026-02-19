@@ -11,6 +11,7 @@ const draftTrailsService = {
    */
   async getOrCreateUser(userId, email) {
     try {
+      console.log(`[DB] Getting or creating user: ${userId}`);
       // Check if user exists
       const users = await query(
         'SELECT id FROM users WHERE userId = ?',
@@ -18,15 +19,18 @@ const draftTrailsService = {
       );
 
       if (users.length > 0) {
+        console.log(`[DB] ✅ User exists with ID: ${users[0].id}`);
         return users[0].id;
       }
 
       // Create new user
+      console.log(`[DB] Creating new user: ${userId}`);
       const result = await query(
         'INSERT INTO users (userId, email) VALUES (?, ?)',
         [userId, email]
       );
 
+      console.log(`[DB] ✅ User created with ID: ${result.insertId}`);
       return result.insertId;
     } catch (error) {
       console.error('❌ Error in getOrCreateUser:', error);
@@ -203,6 +207,7 @@ const draftTrailsService = {
    */
   async markDraftAsPaid(referenceCode) {
     try {
+      console.log(`[DB] Marking draft as paid: ${referenceCode}`);
       const publishedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
       const result = await query(
         `UPDATE draft_trails 
@@ -210,6 +215,12 @@ const draftTrailsService = {
          WHERE referenceCode = ?`,
         [publishedAt, referenceCode]
       );
+
+      if (result.affectedRows > 0) {
+        console.log(`[DB] ✅ Draft marked as paid`);
+      } else {
+        console.warn(`[DB] ⚠️  No rows affected - draft not found`);
+      }
 
       return result.affectedRows > 0;
     } catch (error) {

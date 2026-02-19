@@ -6,6 +6,7 @@
   "scripts": {
     "start": "serverless offline start",
     "dev": "serverless offline start --httpPort 3001",
+    "db:init": "node src/db/init.js",
     "deploy": "serverless deploy",
     "deploy:prod": "serverless deploy --stage prod",
     "deploy:dev": "serverless deploy --stage dev",
@@ -29,16 +30,18 @@
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.1400.0",
-    "mysql2": "^3.6.0",
-    "uuid": "^9.0.0",
     "dotenv": "^16.3.1",
-    "stripe": "^13.0.0"
+    "mysql2": "^3.6.0",
+    "sequelize": "^6.37.7",
+    "sequelize-cli": "^6.6.5",
+    "stripe": "^13.0.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "serverless": "^3.34.0",
-    "serverless-offline": "^13.2.0",
     "serverless-dotenv-plugin": "^4.0.2",
-    "jest": "^29.7.0"
+    "serverless-offline": "^13.2.0"
   },
   "engines": {
     "node": "18.x || 20.x"

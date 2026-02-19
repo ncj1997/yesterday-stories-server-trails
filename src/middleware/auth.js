@@ -15,7 +15,10 @@ const verifyAuthToken = async (event) => {
   try {
     const authHeader = event.headers?.Authorization || event.headers?.authorization;
 
+    console.log(`[AUTH] Verifying authentication token...`);
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn(`[AUTH] ❌ Missing or invalid Authorization header`);
       return {
         authenticated: false,
         message: 'Missing or invalid Authorization header',
@@ -23,6 +26,7 @@ const verifyAuthToken = async (event) => {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log(`[AUTH] Token found, checking in database...`);
 
     // Try to verify token in database
     const results = await query(
@@ -32,6 +36,7 @@ const verifyAuthToken = async (event) => {
     );
 
     if (results.length > 0) {
+      console.log(`[AUTH] ✅ Token verified. User ID: ${results[0].userId}`);
       return {
         authenticated: true,
         userId: results[0].userId,
@@ -39,6 +44,7 @@ const verifyAuthToken = async (event) => {
     }
 
     // Token not found in database or expired
+    console.warn(`[AUTH] ❌ Invalid or expired token`);
     return {
       authenticated: false,
       message: 'Invalid or expired token',
