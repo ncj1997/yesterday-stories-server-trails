@@ -1,15 +1,14 @@
 /**
  * Models Index - Initialize all Sequelize models and associations
+ * Note: Firebase Auth handles users - no User table needed
+ * Note: Files are stored as URLs in trails and customStories - no File table needed
  */
 
 const { getSequelize } = require('../db/sequelize');
 
 // Import model definitions
-const UserModel = require('./User');
 const TrailModel = require('./Trail');
 const CustomStoryModel = require('./CustomStory');
-const FileModel = require('./File');
-const TokenModel = require('./Token');
 const PaymentModel = require('./Payment');
 
 let models = null;
@@ -23,11 +22,8 @@ const initializeModels = () => {
 
   // Initialize all models
   models = {
-    User: UserModel(sequelize),
     Trail: TrailModel(sequelize),
     CustomStory: CustomStoryModel(sequelize),
-    File: FileModel(sequelize),
-    Token: TokenModel(sequelize),
     Payment: PaymentModel(sequelize),
   };
 

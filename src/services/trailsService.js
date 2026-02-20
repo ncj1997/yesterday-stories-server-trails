@@ -1,62 +1,50 @@
 /**
  * Trails Service - Sequelize Version
- * Handles all database operations for trails (drafts and published) using Sequelize ORM
+ * Handles all database operations for trails using Sequelize ORM
  */
 
 const { getModels } = require('../models');
 const { Op } = require('sequelize');
 
+/**
+ * Helper: Determine if payment is required based on number of custom stories
+ * Rule: <= 5 stories = free, > 5 stories = payment required
+ */
+const isPaymentRequired = (customStories) => {
+  const storyCount = customStories ? customStories.length : 0;
+  return storyCount > 5;
+};
+
 const trailsService = {
   /**
-   * Get or create user, returns database user object
+   * Save a new trail (starts with draft status)
+   * Uses Firebase userId directly (no user creation logic)
    */
-  async getOrCreateUser(userId, email) {
-    try {
-      console.log(`[DB] Getting or creating user: ${userId}`);
-      const { User } = getModels();
-
-      const [user, created] = await User.findOrCreate({
-        where: { userId },
-        defaults: { userId, email },
-      });
-
-      if (created) {
-        console.log(`[DB] ✅ User created with ID: ${user.id}`);
-      } else {
-        console.log(`[DB] ✅ User exists with ID: ${user.id}`);
-      }
-
-      return user;
-    } catch (error) {
-      console.error('❌ Error in getOrCreateUser:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Save a new trail (starts as draft)
-   */
-  async saveDraftTrail(referenceCode, userId, email, trailData) {
+  async saveTrail(referenceCode, userId, email, trailData) {
     try {
       const { Trail, CustomStory } = getModels();
-
-      // Ensure user exists
-      const user = await this.getOrCreateUser(userId, email);
 
       // Calculate expiration (7 days from now)
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      // Create trail (starts as draft)
+      // Determine if payment is required (more than 5 stories)
+      const paymentRequired = isPaymentRequired(trailData.customStories);
+      const initialStatus = paymentRequired ? 'payment_pending' : 'draft';
+
+      console.log(`[DB] Creating trail for Firebase user: ${userId}`);
+      console.log(`[DB] Stories count: ${trailData.customStories ? trailData.customStories.length : 0}, Payment required: ${paymentRequired}`);
+
+      // Create trail - userId is Firebase UID
       const draft = await Trail.create({
         referenceCode,
-        userId: user.id,
+        userId,
         title: trailData.title || '',
         description: trailData.description || '',
         difficulty: trailData.difficulty || 'Easy',
         distance: parseFloat(trailData.distance) || 0,
         headerImages: trailData.headerImages || [],
         headerVideos: trailData.headerVideos || [],
-        status: 'draft',
+        status: initialStatus,
         expiresAt,
       });
 
@@ -68,24 +56,28 @@ const trailsService = {
           description: story.description || '',
           latitude: story.latitude || null,
           longitude: story.longitude || null,
-          imageUrl: story.imageUrl || null,
-          videoUrl: story.videoUrl || null,
+          imageUrl: story.imageUrl || (story.imageUrls && story.imageUrls[0]) || null,
+          videoUrl: story.videoUrl || (story.videoUrls && story.videoUrls[0]) || null,
           orderIndex: index,
         }));
 
         await CustomStory.bulkCreate(stories);
       }
 
+      console.log(`[DB] ✅ Trail created: ${referenceCode}`);
+
       return {
         id: draft.id,
         referenceCode: draft.referenceCode,
-        userId: user.userId,
-        email: user.email,
+        userId: userId,
+        email: email,
+        paymentRequired: paymentRequired,
+        initialStatus: initialStatus,
         expiresAt: draft.expiresAt.toISOString(),
         daysRemaining: 7,
       };
     } catch (error) {
-      console.error('❌ Error in saveDraftTrail:', error);
+      console.error('❌ Error in saveTrail:', error);
       throw error;
     }
   },
@@ -93,9 +85,9 @@ const trailsService = {
   /**
    * Get trail by reference code with custom stories
    */
-  async getDraftTrail(referenceCode) {
+  async getTrail(referenceCode) {
     try {
-      const { Trail, User, CustomStory } = getModels();
+      const { Trail, CustomStory } = getModels();
 
       const draft = await Trail.findOne({
         where: {
@@ -103,11 +95,6 @@ const trailsService = {
           isDeleted: false,
         },
         include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['userId', 'email'],
-          },
           {
             model: CustomStory,
             as: 'customStories',
@@ -126,11 +113,12 @@ const trailsService = {
         Math.ceil((new Date(draft.expiresAt) - Date.now()) / (1000 * 60 * 60 * 24))
       );
 
+      const paymentRequired = isPaymentRequired(draft.customStories);
+
       return {
         id: draft.id,
         referenceCode: draft.referenceCode,
-        userId: draft.user.userId,
-        email: draft.user.email,
+        userId: draft.userId,
         trailData: {
           title: draft.title,
           description: draft.description,
@@ -142,31 +130,27 @@ const trailsService = {
         },
         status: draft.status,
         isPaid: draft.isPaid,
+        paymentRequired: paymentRequired,
         createdAt: draft.createdAt,
         expiresAt: draft.expiresAt,
         daysRemaining,
       };
     } catch (error) {
-      console.error('❌ Error in getDraftTrail:', error);
+      console.error('❌ Error in getTrail:', error);
       throw error;
     }
   },
 
   /**
-   * Get all trails for a user (drafts only, unpaid)
+   * Get all trails for a user (all statuses)
    */
-  async getUserDraftTrails(userId) {
+  async getUserTrails(userId) {
     try {
-      const { Trail, User, CustomStory } = getModels();
+      const { Trail, CustomStory } = getModels();
 
-      const user = await User.findOne({ where: { userId } });
-      if (!user) {
-        return [];
-      }
-
-      const drafts = await Trail.findAll({
+      const trails = await Trail.findAll({
         where: {
-          userId: user.id,
+          userId: userId,
           isDeleted: false,
         },
         include: [
@@ -179,29 +163,30 @@ const trailsService = {
         order: [['createdAt', 'DESC']],
       });
 
-      return drafts.map(draft => ({
-        id: draft.id,
-        referenceCode: draft.referenceCode,
+      return trails.map(trail => ({
+        id: trail.id,
+        referenceCode: trail.referenceCode,
         trailData: {
-          title: draft.title,
-          description: draft.description,
-          difficulty: draft.difficulty,
-          distance: draft.distance.toString(),
-          headerImages: draft.headerImages,
-          headerVideos: draft.headerVideos,
-          customStories: draft.customStories,
+          title: trail.title,
+          description: trail.description,
+          difficulty: trail.difficulty,
+          distance: trail.distance.toString(),
+          headerImages: trail.headerImages,
+          headerVideos: trail.headerVideos,
+          customStories: trail.customStories,
         },
-        status: draft.status,
-        isPaid: draft.isPaid,
-        createdAt: draft.createdAt,
-        expiresAt: draft.expiresAt,
+        status: trail.status,
+        isPaid: trail.isPaid,
+        paymentRequired: isPaymentRequired(trail.customStories),
+        createdAt: trail.createdAt,
+        expiresAt: trail.expiresAt,
         daysRemaining: Math.max(
           0,
-          Math.ceil((new Date(draft.expiresAt) - Date.now()) / (1000 * 60 * 60 * 24))
+          Math.ceil((new Date(trail.expiresAt) - Date.now()) / (1000 * 60 * 60 * 24))
         ),
       }));
     } catch (error) {
-      console.error('❌ Error in getUserDraftTrails:', error);
+      console.error('❌ Error in getUserTrails:', error);
       throw error;
     }
   },
@@ -209,7 +194,7 @@ const trailsService = {
   /**
    * Update trail data
    */
-  async updateDraftTrail(referenceCode, updates) {
+  async updateTrail(referenceCode, updates) {
     try {
       const { Trail, CustomStory } = getModels();
 
@@ -244,12 +229,19 @@ const trailsService = {
               description: story.description || '',
               latitude: story.latitude || null,
               longitude: story.longitude || null,
-              imageUrl: story.imageUrl || null,
-              videoUrl: story.videoUrl || null,
+              imageUrl: story.imageUrl || (story.imageUrls && story.imageUrls[0]) || null,
+              videoUrl: story.videoUrl || (story.videoUrls && story.videoUrls[0]) || null,
               orderIndex: index,
             }));
 
             await CustomStory.bulkCreate(stories);
+          }
+
+          // Update status based on new story count if not yet paid
+          if (!draft.isPaid) {
+            const paymentRequired = isPaymentRequired(trailData.customStories);
+            draft.status = paymentRequired ? 'payment_pending' : 'draft';
+            console.log(`[DB] Updated status to '${draft.status}' based on ${trailData.customStories.length} stories`);
           }
         }
       }
@@ -267,7 +259,7 @@ const trailsService = {
       await draft.save();
       return true;
     } catch (error) {
-      console.error('❌ Error in updateDraftTrail:', error);
+      console.error('❌ Error in updateTrail:', error);
       throw error;
     }
   },
@@ -275,7 +267,7 @@ const trailsService = {
   /**
    * Delete trail (soft delete)
    */
-  async deleteDraftTrail(referenceCode) {
+  async deleteTrail(referenceCode) {
     try {
       const { Trail } = getModels();
 
@@ -286,7 +278,7 @@ const trailsService = {
 
       return result[0] > 0;
     } catch (error) {
-      console.error('❌ Error in deleteDraftTrail:', error);
+      console.error('❌ Error in deleteTrail:', error);
       throw error;
     }
   },
@@ -294,7 +286,7 @@ const trailsService = {
   /**
    * Mark trail as paid and published
    */
-  async markDraftAsPaid(referenceCode) {
+  async markTrailAsPaid(referenceCode) {
     try {
       console.log(`[DB] Marking trail as paid: ${referenceCode}`);
       const { Trail } = getModels();
@@ -316,7 +308,7 @@ const trailsService = {
 
       return result[0] > 0;
     } catch (error) {
-      console.error('❌ Error in markDraftAsPaid:', error);
+      console.error('❌ Error in markTrailAsPaid:', error);
       throw error;
     }
   },

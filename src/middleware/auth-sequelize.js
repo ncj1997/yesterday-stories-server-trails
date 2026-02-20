@@ -1,14 +1,14 @@
 /**
  * Authentication Middleware - Sequelize Version
- * Validates tokens from Authorization header using Sequelize ORM
+ * Decodes Firebase JWT tokens to extract user information
+ * TODO: Add Firebase Admin SDK verification in production
  */
 
-const { getModels } = require('../models');
-const { Op } = require('sequelize');
+const jwt = require('jsonwebtoken');
 
 /**
  * Verify authentication token
- * Returns { authenticated: true, userId: 'user-id' } on success
+ * Returns { authenticated: true, userId: 'user-id', email: 'user@email.com' } on success
  * Returns { authenticated: false, message: 'error message' } on failure
  */
 const verifyAuthToken = async (event) => {
@@ -26,41 +26,31 @@ const verifyAuthToken = async (event) => {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    console.log(`[AUTH] Token found, checking in database...`);
+    console.log(`[AUTH] Decoding Firebase JWT token...`);
 
-    // Try to verify token in database
-    const { Token, User } = getModels();
+    // Decode Firebase JWT token (without verification for dev environment)
+    // In production, use Firebase Admin SDK to verify the token signature
+    const decoded = jwt.decode(token);
     
-    const tokenRecord = await Token.findOne({
-      where: {
-        token,
-        expiresAt: { [Op.gt]: new Date() },
-      },
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['userId'],
-        },
-      ],
-    });
-
-    if (tokenRecord) {
-      console.log(`[AUTH] ✅ Token verified. User ID: ${tokenRecord.user.userId}`);
+    if (!decoded || !decoded.user_id) {
+      console.warn(`[AUTH] ❌ Invalid token format or missing user_id`);
       return {
-        authenticated: true,
-        userId: tokenRecord.user.userId,
+        authenticated: false,
+        message: 'Invalid token format',
       };
     }
 
-    // Token not found in database or expired
-    console.warn(`[AUTH] ❌ Invalid or expired token`);
+    console.log(`[AUTH] ✅ Token decoded. User ID: ${decoded.user_id}`);
+    console.log(`[AUTH] Email: ${decoded.email || 'N/A'}`);
+    
     return {
-      authenticated: false,
-      message: 'Invalid or expired token',
+      authenticated: true,
+      userId: decoded.user_id,
+      email: decoded.email,
+      name: decoded.name,
     };
   } catch (error) {
-    console.error('[AUTH] ❌ Error verifying token:', error);
+    console.error('[AUTH] ❌ Error decoding token:', error);
     return {
       authenticated: false,
       message: 'Authentication error',

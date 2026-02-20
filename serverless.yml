@@ -49,26 +49,22 @@ functions:
   api:
     handler: src/index.handler
     events:
-      # Draft Trails
+      # Trails
       - http:
-          path: draft-trails
+          path: trails
           method: post
           cors: true
       - http:
-          path: draft-trails/{referenceCode}
+          path: trails/{proxy+}
           method: get
           cors: true
       - http:
-          path: draft-trails/{referenceCode}
+          path: trails/{proxy+}
           method: put
           cors: true
       - http:
-          path: draft-trails/{referenceCode}
+          path: trails/{proxy+}
           method: delete
-          cors: true
-      - http:
-          path: draft-trails/user/{userId}
-          method: get
           cors: true
       
       # File Uploads
@@ -81,9 +77,9 @@ functions:
           method: post
           cors: true
       
-      # File Retrieval
+      # Health Check
       - http:
-          path: files/{referenceCode}
+          path: health
           method: get
           cors: true
       
@@ -91,12 +87,6 @@ functions:
       - http:
           path: payments/create-intent
           method: post
-          cors: true
-      
-      # Health Check
-      - http:
-          path: health
-          method: get
           cors: true
 
   # Scheduled cleanup of expired drafts (run daily)

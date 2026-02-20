@@ -44,16 +44,17 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+      field: 'orderIndex',
     },
   }, {
     tableName: 'custom_stories',
     timestamps: true,
-    underscored: true,
+    underscored: false,
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     indexes: [
       { fields: ['referenceCode'] },
-      { fields: ['order_index'] },
+      { fields: ['orderIndex'] },
     ],
   });
 

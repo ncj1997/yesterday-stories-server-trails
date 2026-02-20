@@ -1,0 +1,337 @@
+{
+  "info": {
+    "name": "Yesterday Stories API",
+    "description": "API for managing trails with stories, payments, and file uploads",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the API is running"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Trails",
+      "item": [
+        {
+          "name": "Create Trail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Mountain Adventure Trail\",\n  \"description\": \"A beautiful hiking trail through the mountains\",\n  \"difficulty\": \"Medium\",\n  \"distance\": 12.5,\n  \"headerImages\": [\n    \"https://example.com/image1.jpg\",\n    \"https://example.com/image2.jpg\"\n  ],\n  \"headerVideos\": [],\n  \"customStories\": [\n    {\n      \"title\": \"Story 1\",\n      \"description\": \"First story point\",\n      \"latitude\": -33.8688,\n      \"longitude\": 151.2093,\n      \"imageUrl\": \"https://example.com/story1.jpg\",\n      \"videoUrl\": null,\n      \"orderIndex\": 0\n    }\n  ]\n}\n"
+            },
+            "url": {
+              "raw": "{{base_url}}/trails",
+              "host": ["{{base_url}}"],
+              "path": ["trails"]
+            },
+            "description": "Create a new trail"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Trails",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/trails/my",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "my"]
+            },
+            "description": "Get all trails for the authenticated user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Trail by Code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/trails/{{reference_code}}",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "{{reference_code}}"]
+            },
+            "description": "Get a specific trail by reference code"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Trail",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Trail Title\",\n  \"description\": \"Updated description\",\n  \"difficulty\": \"Hard\",\n  \"distance\": 15.0\n}\n"
+            },
+            "url": {
+              "raw": "{{base_url}}/trails/{{reference_code}}",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "{{reference_code}}"]
+            },
+            "description": "Update trail details"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Trail Data",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customStories\": [\n    {\n      \"title\": \"Updated Story\",\n      \"description\": \"New description\",\n      \"latitude\": -33.8688,\n      \"longitude\": 151.2093,\n      \"imageUrl\": \"https://example.com/new-image.jpg\",\n      \"videoUrl\": null,\n      \"orderIndex\": 0\n    }\n  ]\n}\n"
+            },
+            "url": {
+              "raw": "{{base_url}}/trails/{{reference_code}}/update",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "{{reference_code}}", "update"]
+            },
+            "description": "Update trail data (stories, images, etc)"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Trail as Paid",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/trails/{{reference_code}}/paid",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "{{reference_code}}", "paid"]
+            },
+            "description": "Mark trail as paid and published"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Trail Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"submitted\"\n}\n"
+            },
+            "url": {
+              "raw": "{{base_url}}/trails/{{reference_code}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "{{reference_code}}", "status"]
+            },
+            "description": "Update trail status (draft, payment_pending, payment_completed, payment_failed, expired, submitted, completed)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Trail",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/trails/{{reference_code}}",
+              "host": ["{{base_url}}"],
+              "path": ["trails", "{{reference_code}}"]
+            },
+            "description": "Delete a trail (soft delete)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "path/to/image.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/images",
+              "host": ["{{base_url}}"],
+              "path": ["images"]
+            },
+            "description": "Upload an image file. Returns URL to use in trail headerImages or custom story imageUrl"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "path/to/video.mp4"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/videos",
+              "host": ["{{base_url}}"],
+              "path": ["videos"]
+            },
+            "description": "Upload a video file. Returns URL to use in trail headerVideos or custom story videoUrl"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment Intent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referenceCode\": \"{{reference_code}}\",\n  \"amount\": 9999,\n  \"currency\": \"AUD\",\n  \"metadata\": {\n    \"description\": \"Trail publication fee\"\n  }\n}\n"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/create-intent",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "create-intent"]
+            },
+            "description": "Create a Stripe payment intent for trail publication"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001/dev",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "reference_code",
+      "value": "TRAIL_CODE_HERE",
+      "type": "string"
+    }
+  ]
+}

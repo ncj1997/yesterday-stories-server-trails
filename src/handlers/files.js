@@ -1,52 +1,110 @@
 /**
  * Lambda Handler: File Uploads (Images & Videos)
- * POST /images - Upload image to S3
- * POST /videos - Upload video to S3
- * GET /files/{referenceCode} - Get files for a draft
+ * POST /images - Upload image
+ * POST /videos - Upload video
  */
 
 const filesService = require('../services/filesService');
 const { httpResponse, getPathParam } = require('../utils/http');
+const { verifyAuthToken } = require('../middleware/auth-sequelize');
+const busboy = require('busboy');
 
 /**
- * Helper to convert base64 to buffer (for API Gateway with binary support)
+ * Parse multipart form-data to extract file buffer and MIME type
+ * Returns { fileBuffer, mimeType }
  */
-const getFileBuffer = (event) => {
-  if (event.isBase64Encoded && event.body) {
-    return Buffer.from(event.body, 'base64');
-  }
-  if (event.body instanceof Buffer) {
-    return event.body;
-  }
-  return null;
+const parseMultipartFormData = (event) => {
+  return new Promise((resolve, reject) => {
+    // Convert body to buffer if base64 encoded
+    let body = event.body;
+    if (event.isBase64Encoded && typeof body === 'string') {
+      body = Buffer.from(body, 'base64');
+    }
+    
+    // Prepare headers for busboy - it expects lowercase keys
+    const headers = {};
+    for (const [key, value] of Object.entries(event.headers || {})) {
+      headers[key.toLowerCase()] = value;
+    }
+    
+    console.log('[FILES] 📦 Parsing multipart form-data');
+    console.log('[FILES] Headers:', JSON.stringify(headers, null, 2));
+    
+    const bb = busboy({ headers });
+    let fileBuffer = null;
+    let mimeType = 'application/octet-stream';
+
+    bb.on('file', (fieldname, file, info) => {
+      console.log(`[FILES] 📄 File field: ${fieldname}, mimeType: ${info.mimeType}`);
+      const chunks = [];
+      
+      file.on('data', (data) => {
+        chunks.push(data);
+      });
+
+      file.on('end', () => {
+        fileBuffer = Buffer.concat(chunks);
+        mimeType = info.mimeType || 'application/octet-stream';
+        console.log(`[FILES] ✅ File parsed: ${chunks.length} chunks, size: ${fileBuffer.length}, mimeType: ${mimeType}`);
+      });
+
+      file.on('error', (error) => {
+        reject(new Error(`File parsing error: ${error.message}`));
+      });
+    });
+
+    bb.on('error', (error) => {
+      console.error('[FILES] ❌ Busboy error:', error.message);
+      reject(new Error(`Multipart parsing error: ${error.message}`));
+    });
+
+    bb.on('close', () => {
+      if (fileBuffer) {
+        resolve({ fileBuffer, mimeType });
+      } else {
+        reject(new Error('No file found in multipart data'));
+      }
+    });
+
+    bb.write(body);
+    bb.end();
+  });
 };
 
 /**
  * POST /images
- * Upload image to S3
- * Expects multipart form data or base64 encoded image in body
+ * Upload image without requiring a reference code
+ * Returns the image URL for use in trail or custom story creation
+ * REQUIRES AUTH
  */
 const uploadImage = async (event) => {
   try {
-    const referenceCode = event.pathParameters?.referenceCode || event.queryStringParameters?.referenceCode;
-    const userId = event.pathParameters?.userId || event.queryStringParameters?.userId;
-
-    if (!referenceCode || !userId) {
-      return httpResponse.error('Missing referenceCode or userId parameter');
+    // Verify authentication
+    const auth = await verifyAuthToken(event);
+    if (!auth.authenticated) {
+      console.warn(`[FILES] ❌ Authentication failed: ${auth.message}`);
+      return httpResponse.error(auth.message, 401);
     }
 
-    // For API Gateway with binary support
-    const fileBuffer = getFileBuffer(event);
-    if (!fileBuffer) {
+    // Parse multipart form-data to extract file
+    let fileBuffer, mimeType;
+    try {
+      const parsed = await parseMultipartFormData(event);
+      fileBuffer = parsed.fileBuffer;
+      mimeType = parsed.mimeType;
+    } catch (parseError) {
+      console.error(`[FILES] ❌ Multipart parse error:`, parseError.message);
+      return httpResponse.error(`File parsing failed: ${parseError.message}`);
+    }
+
+    if (!fileBuffer || fileBuffer.length === 0) {
       return httpResponse.error('No image data provided');
     }
 
-    // Validate image file type
-    const contentType = event.headers?.['content-type'] || 'image/jpeg';
     const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-    if (!validImageTypes.includes(contentType)) {
-      return httpResponse.error('Invalid image type. Allowed: JPEG, PNG, GIF, WebP');
+    if (!validImageTypes.includes(mimeType)) {
+      return httpResponse.error(`Invalid image type: ${mimeType}. Allowed: JPEG, PNG, GIF, WebP`);
     }
 
     // Check file size (max 10MB)
@@ -54,19 +112,14 @@ const uploadImage = async (event) => {
       return httpResponse.error('File size exceeds 10MB limit');
     }
 
-    const result = await filesService.uploadFile(
-      fileBuffer,
-      'image',
-      contentType,
-      referenceCode,
-      userId
-    );
+    const result = await filesService.uploadFile(fileBuffer, 'image', mimeType);
 
     return httpResponse.success(
       {
         success: true,
         message: 'Image uploaded successfully',
         imageUrl: result.url,
+        mimeType: result.mimeType,
         s3Key: result.s3Key,
         size: result.size,
       },
@@ -80,30 +133,38 @@ const uploadImage = async (event) => {
 
 /**
  * POST /videos
- * Upload video to S3
- * Expects multipart form data or base64 encoded video in body
+ * Upload video without requiring a reference code
+ * Returns the video URL for use in trail or custom story creation
+ * REQUIRES AUTH
  */
 const uploadVideo = async (event) => {
   try {
-    const referenceCode = event.pathParameters?.referenceCode || event.queryStringParameters?.referenceCode;
-    const userId = event.pathParameters?.userId || event.queryStringParameters?.userId;
-
-    if (!referenceCode || !userId) {
-      return httpResponse.error('Missing referenceCode or userId parameter');
+    // Verify authentication
+    const auth = await verifyAuthToken(event);
+    if (!auth.authenticated) {
+      console.warn(`[FILES] ❌ Authentication failed: ${auth.message}`);
+      return httpResponse.error(auth.message, 401);
     }
 
-    // For API Gateway with binary support
-    const fileBuffer = getFileBuffer(event);
-    if (!fileBuffer) {
+    // Parse multipart form-data to extract file
+    let fileBuffer, mimeType;
+    try {
+      const parsed = await parseMultipartFormData(event);
+      fileBuffer = parsed.fileBuffer;
+      mimeType = parsed.mimeType;
+    } catch (parseError) {
+      console.error(`[FILES] ❌ Multipart parse error:`, parseError.message);
+      return httpResponse.error(`File parsing failed: ${parseError.message}`);
+    }
+
+    if (!fileBuffer || fileBuffer.length === 0) {
       return httpResponse.error('No video data provided');
     }
 
-    // Validate video file type
-    const contentType = event.headers?.['content-type'] || 'video/mp4';
     const validVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
 
-    if (!validVideoTypes.includes(contentType)) {
-      return httpResponse.error('Invalid video type. Allowed: MP4, WebM, MOV, AVI');
+    if (!validVideoTypes.includes(mimeType)) {
+      return httpResponse.error(`Invalid video type: ${mimeType}. Allowed: MP4, WebM, MOV, AVI`);
     }
 
     // Check file size (max 500MB)
@@ -111,19 +172,14 @@ const uploadVideo = async (event) => {
       return httpResponse.error('File size exceeds 500MB limit');
     }
 
-    const result = await filesService.uploadFile(
-      fileBuffer,
-      'video',
-      contentType,
-      referenceCode,
-      userId
-    );
+    const result = await filesService.uploadFile(fileBuffer, 'video', mimeType);
 
     return httpResponse.success(
       {
         success: true,
         message: 'Video uploaded successfully',
         videoUrl: result.url,
+        mimeType: result.mimeType,
         s3Key: result.s3Key,
         size: result.size,
       },
@@ -135,33 +191,7 @@ const uploadVideo = async (event) => {
   }
 };
 
-/**
- * GET /files/{referenceCode}
- * Get all files (images + videos) for a draft
- */
-const getFilesByReference = async (event) => {
-  try {
-    const referenceCode = getPathParam(event, 'referenceCode');
-
-    if (!referenceCode) {
-      return httpResponse.error('Missing referenceCode parameter');
-    }
-
-    const files = await filesService.getFilesByReference(referenceCode);
-
-    return httpResponse.success({
-      success: true,
-      count: files.length,
-      data: files,
-    });
-  } catch (error) {
-    console.error('❌ Error getting files:', error);
-    return httpResponse.serverError('Failed to get files');
-  }
-};
-
 module.exports = {
   uploadImage,
   uploadVideo,
-  getFilesByReference,
 };

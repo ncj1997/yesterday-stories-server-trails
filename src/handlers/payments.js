@@ -4,17 +4,27 @@
  */
 
 const { httpResponse, parseBody } = require('../utils/http');
+const { verifyAuthToken } = require('../middleware/auth-sequelize');
 
 /**
  * POST /payments/create-intent
  * Create a Stripe PaymentIntent for trail payment
+ * REQUIRES AUTH
  */
 const createPaymentIntent = async (event) => {
   try {
+    // Verify authentication
+    const auth = await verifyAuthToken(event);
+    if (!auth.authenticated) {
+      console.warn(`[PAYMENT] ❌ Authentication failed: ${auth.message}`);
+      return httpResponse.error(auth.message, 401);
+    }
+
     const body = parseBody(event);
     const { amount, currency = 'AUD', metadata } = body;
+    const userId = auth.userId;
 
-    console.log(`[PAYMENT] Creating payment intent...`);
+    console.log(`[PAYMENT] Creating payment intent for user: ${userId}`);
     console.log(`[PAYMENT] Amount: ${amount} ${currency}`);
     console.log(`[PAYMENT] Metadata:`, metadata);
 
@@ -41,7 +51,9 @@ const createPaymentIntent = async (event) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: parseInt(amount), // Amount in cents
       currency: currency.toLowerCase(),
-      metadata: metadata || {
+      metadata: {
+        userId,
+        ...metadata,
         type: 'trail',
         timestamp: new Date().toISOString(),
       },

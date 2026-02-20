@@ -2,20 +2,15 @@ const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
   const User = sequelize.define('User', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
     userId: {
       type: DataTypes.STRING(255),
+      primaryKey: true,
       allowNull: false,
-      unique: true,
       field: 'userId',
     },
     email: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: true,
       unique: true,
       validate: {
         isEmail: true,
@@ -24,11 +19,10 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'users',
     timestamps: true,
-    underscored: true,
+    underscored: false,
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     indexes: [
-      { fields: ['userId'] },
       { fields: ['email'] },
     ],
   });
@@ -41,10 +35,6 @@ module.exports = (sequelize) => {
     User.hasMany(models.File, {
       foreignKey: 'userId',
       as: 'files',
-    });
-    User.hasMany(models.Token, {
-      foreignKey: 'userId',
-      as: 'tokens',
     });
     User.hasMany(models.Payment, {
       foreignKey: 'userId',

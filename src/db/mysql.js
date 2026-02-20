@@ -48,22 +48,27 @@ const initializeDatabase = async () => {
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        userId VARCHAR(255) NOT NULL UNIQUE,
+        userId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE,
         email VARCHAR(255) NOT NULL UNIQUE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_userId (userId),
         INDEX idx_email (email)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
-    // Create draft_trails table
+    // Create trails table (replaces draft_trails)
     await connection.execute(`
-      CREATE TABLE IF NOT EXISTS draft_trails (
+      CREATE TABLE IF NOT EXISTS trails (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        referenceCode VARCHAR(100) NOT NULL UNIQUE,
-        userId INT NOT NULL,
-        trailData LONGTEXT NOT NULL,
+        referenceCode VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE,
+        userId VARCHAR(255) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description LONGTEXT,
+        difficulty ENUM('Easy', 'Medium', 'Hard') DEFAULT 'Easy',
+        distance DECIMAL(10, 2) DEFAULT 0,
+        headerImages LONGTEXT,
+        headerVideos LONGTEXT,
         status ENUM('draft', 'payment_pending', 'payment_completed', 'payment_failed', 'expired', 'submitted', 'completed') DEFAULT 'draft',
         isPaid BOOLEAN DEFAULT FALSE,
         isDeleted BOOLEAN DEFAULT FALSE,
@@ -71,7 +76,6 @@ const initializeDatabase = async () => {
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         publishedAt TIMESTAMP NULL,
         expiresAt TIMESTAMP NOT NULL,
-        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_referenceCode (referenceCode),
         INDEX idx_userId (userId),
         INDEX idx_status (status),
@@ -79,52 +83,48 @@ const initializeDatabase = async () => {
         INDEX idx_createdAt (createdAt),
         INDEX idx_expiresAt (expiresAt),
         INDEX idx_publishedAt (publishedAt)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
-
-    // Create files table
+    // Create custom_stories table
     await connection.execute(`
-      CREATE TABLE IF NOT EXISTS files (
+      CREATE TABLE IF NOT EXISTS custom_stories (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        referenceCode VARCHAR(100) NOT NULL,
-        userId INT NOT NULL,
-        fileType ENUM('image', 'video') NOT NULL,
-        s3Key VARCHAR(500) NOT NULL,
-        s3Url VARCHAR(1000) NOT NULL,
-        mimeType VARCHAR(100),
-        fileSize BIGINT,
-        metadata JSON,
+        referenceCode VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        title VARCHAR(255),
+        description LONGTEXT,
+        latitude DECIMAL(10, 8),
+        longitude DECIMAL(11, 8),
+        imageUrl VARCHAR(1000),
+        videoUrl VARCHAR(1000),
+        orderIndex INT,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (referenceCode) REFERENCES draft_trails(referenceCode) ON DELETE CASCADE,
+        FOREIGN KEY (referenceCode) REFERENCES trails(referenceCode) ON DELETE CASCADE,
         INDEX idx_referenceCode (referenceCode),
-        INDEX idx_userId (userId),
-        INDEX idx_fileType (fileType),
-        INDEX idx_createdAt (createdAt)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        INDEX idx_orderIndex (orderIndex)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
     // Create tokens table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS tokens (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        userId INT NOT NULL,
+        userId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
         token VARCHAR(500) NOT NULL UNIQUE,
         expiresAt TIMESTAMP NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_userId (userId),
         INDEX idx_token (token),
         INDEX idx_expiresAt (expiresAt)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
     // Create payments table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS payments (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        referenceCode VARCHAR(100) NOT NULL,
-        userId INT NOT NULL,
+        referenceCode VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        userId VARCHAR(255) NOT NULL,
         paymentIntentId VARCHAR(255),
         amount BIGINT NOT NULL,
         currency VARCHAR(3) DEFAULT 'AUD',
@@ -132,14 +132,13 @@ const initializeDatabase = async () => {
         metadata JSON,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (referenceCode) REFERENCES draft_trails(referenceCode) ON DELETE CASCADE,
+        FOREIGN KEY (referenceCode) REFERENCES trails(referenceCode) ON DELETE CASCADE,
         INDEX idx_referenceCode (referenceCode),
         INDEX idx_userId (userId),
         INDEX idx_paymentIntentId (paymentIntentId),
         INDEX idx_status (status),
         INDEX idx_createdAt (createdAt)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
     console.log('✅ Database tables initialized');

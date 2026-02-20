@@ -14,12 +14,9 @@ module.exports = (sequelize) => {
       field: 'referenceCode',
     },
     userId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(255),
       allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
+      field: 'userId',
     },
     title: {
       type: DataTypes.STRING(255),
@@ -42,6 +39,7 @@ module.exports = (sequelize) => {
     headerImages: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'headerImages',
       get() {
         const value = this.getDataValue('headerImages');
         return value ? JSON.parse(value) : [];
@@ -53,6 +51,7 @@ module.exports = (sequelize) => {
     headerVideos: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'headerVideos',
       get() {
         const value = this.getDataValue('headerVideos');
         return value ? JSON.parse(value) : [];
@@ -70,53 +69,48 @@ module.exports = (sequelize) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+      field: 'isPaid',
     },
     isDeleted: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+      field: 'isDeleted',
     },
     publishedAt: {
       type: DataTypes.DATE,
       allowNull: true,
+      field: 'publishedAt',
     },
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      field: 'expiresAt',
     },
   }, {
     tableName: 'trails',
     timestamps: true,
-    underscored: true,
+    underscored: false,
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     indexes: [
       { fields: ['referenceCode'] },
-      { fields: ['user_id'] },
+      { fields: ['userId'] },
       { fields: ['status'] },
-      { fields: ['is_paid'] },
+      { fields: ['isPaid'] },
       { fields: ['difficulty'] },
       { fields: ['distance'] },
-      { fields: ['created_at'] },
-      { fields: ['expires_at'] },
-      { fields: ['published_at'] },
+      { fields: ['createdAt'] },
+      { fields: ['expiresAt'] },
+      { fields: ['publishedAt'] },
     ],
   });
 
   Trail.associate = (models) => {
-    Trail.belongsTo(models.User, {
-      foreignKey: 'userId',
-      as: 'user',
-    });
     Trail.hasMany(models.CustomStory, {
       foreignKey: 'referenceCode',
       sourceKey: 'referenceCode',
       as: 'customStories',
-    });
-    Trail.hasMany(models.File, {
-      foreignKey: 'referenceCode',
-      sourceKey: 'referenceCode',
-      as: 'files',
     });
     Trail.hasMany(models.Payment, {
       foreignKey: 'referenceCode',

@@ -3,14 +3,14 @@
  * Runs daily to mark drafts as 'expired'
  */
 
-const draftTrailsService = require('../services/draftTrailsService');
+const trailsService = require('../services/trailsService');
 const { httpResponse } = require('../utils/http');
 
 const handler = async (event, context) => {
   try {
     console.log('🧹 Starting cleanup of expired drafts...');
 
-    const count = await draftTrailsService.cleanupExpiredDrafts();
+    const count = await trailsService.cleanupExpiredDrafts();
 
     console.log(`✅ Cleaned up ${count} expired drafts`);
 

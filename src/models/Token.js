@@ -8,11 +8,12 @@ module.exports = (sequelize) => {
       autoIncrement: true,
     },
     userId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(255),
       allowNull: false,
+      field: 'userId',
       references: {
         model: 'users',
-        key: 'id',
+        key: 'userId',
       },
     },
     token: {
@@ -23,16 +24,17 @@ module.exports = (sequelize) => {
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      field: 'expiresAt',
     },
   }, {
     tableName: 'tokens',
     timestamps: true,
-    underscored: true,
+    underscored: false,
     createdAt: 'createdAt',
     updatedAt: false,
     indexes: [
       { fields: ['token'] },
-      { fields: ['expires_at'] },
+      { fields: ['expiresAt'] },
     ],
   });
 

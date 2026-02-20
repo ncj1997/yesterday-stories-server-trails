@@ -3,7 +3,7 @@
  * Routes requests to appropriate handlers based on method and path
  */
 
-const draftTrailsHandlers = require('./draftTrails');
+const trailsHandlers = require('./trails');
 const filesHandlers = require('./files');
 const paymentsHandler = require('./payments');
 const { httpResponse } = require('../utils/http');
@@ -19,44 +19,37 @@ const router = async (event, context) => {
     console.log(`📍 ${httpMethod} ${path}`);
     console.log(`${'='.repeat(80)}`);
 
-    // Draft Trails Routes
-    if (path.startsWith('/draft-trails')) {
+    // Trails Routes
+    if (path.startsWith('/trails')) {
       if (httpMethod === 'POST') {
-        return draftTrailsHandlers.saveDraftTrail(event);
+        return trailsHandlers.saveTrail(event);
       }
       if (httpMethod === 'GET') {
-        // GET /draft-trails/my-drafts - requires auth
-        if (path.includes('/my-drafts') || path.endsWith('/my-drafts')) {
-          return draftTrailsHandlers.getUserDraftTrails(event);
+        // GET /trails/my - requires auth
+        if (path.includes('/my') || path.endsWith('/my')) {
+          return trailsHandlers.getUserTrails(event);
         }
-        // GET /draft-trails/:code - public
-        return draftTrailsHandlers.getDraftTrail(event);
+        // GET /trails/:code - public
+        return trailsHandlers.getTrail(event);
       }
       if (httpMethod === 'PUT') {
-        // PUT /draft-trails/:code/update - requires auth
+        // PUT /trails/:code/update - requires auth
         if (path.includes('/update')) {
-          return draftTrailsHandlers.updateDraftTrailData(event);
+          return trailsHandlers.updateTrailData(event);
         }
-        // PUT /draft-trails/:code/paid - requires auth
+        // PUT /trails/:code/paid - requires auth
         if (path.includes('/paid')) {
-          return draftTrailsHandlers.markDraftAsPaid(event);
+          return trailsHandlers.markTrailAsPaid(event);
         }
-        // PUT /draft-trails/:code/status - requires auth
+        // PUT /trails/:code/status - requires auth
         if (path.includes('/status')) {
-          return draftTrailsHandlers.updateDraftStatus(event);
+          return trailsHandlers.updateTrailStatus(event);
         }
         // Fallback for generic update
-        return draftTrailsHandlers.updateDraftTrailData(event);
+        return trailsHandlers.updateTrailData(event);
       }
       if (httpMethod === 'DELETE') {
-        return draftTrailsHandlers.deleteDraftTrail(event);
-      }
-    }
-
-    // Published Trails Routes
-    if (path === '/trails' || path === '/trails/') {
-      if (httpMethod === 'GET') {
-        return draftTrailsHandlers.getPublishedTrails(event);
+        return trailsHandlers.deleteTrail(event);
       }
     }
 
@@ -70,13 +63,6 @@ const router = async (event, context) => {
     if (path.startsWith('/videos')) {
       if (httpMethod === 'POST') {
         return filesHandlers.uploadVideo(event);
-      }
-    }
-
-    // Files List Route
-    if (path.startsWith('/files')) {
-      if (httpMethod === 'GET') {
-        return filesHandlers.getFilesByReference(event);
       }
     }
 
@@ -98,7 +84,15 @@ const router = async (event, context) => {
       });
     }
 
-    // 404 Not Found
+    // 404 Not Found - Log unknown endpoint details
+    console.log(`\n⚠️ [UNKNOWN ENDPOINT] ${httpMethod} ${path}`);
+    console.log('📦 Payload Details:');
+    console.log('  Headers:', JSON.stringify(event.headers || {}, null, 2));
+    console.log('  Query Params:', JSON.stringify(event.queryStringParameters || {}, null, 2));
+    console.log('  Path Params:', JSON.stringify(event.pathParameters || {}, null, 2));
+    console.log('  Body:', event.body ? (typeof event.body === 'string' ? event.body : JSON.stringify(event.body, null, 2)) : 'No body');
+    console.log(`${'='.repeat(80)}\n`);
+    
     return httpResponse.notFound(`Path ${path} not found`);
   } catch (error) {
     console.error('❌ Router error:', error);

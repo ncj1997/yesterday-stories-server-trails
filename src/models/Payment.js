@@ -17,55 +17,53 @@ module.exports = (sequelize) => {
       },
     },
     userId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(255),
       allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
+      field: 'userId',
     },
     paymentIntentId: {
       type: DataTypes.STRING(255),
       allowNull: true,
+      field: 'paymentIntentId',
     },
     amount: {
       type: DataTypes.BIGINT,
       allowNull: false,
+      field: 'amount',
     },
     currency: {
       type: DataTypes.STRING(3),
       allowNull: false,
       defaultValue: 'AUD',
+      field: 'currency',
     },
     status: {
       type: DataTypes.ENUM('pending', 'completed', 'failed', 'canceled'),
       allowNull: false,
       defaultValue: 'pending',
+      field: 'status',
     },
     metadata: {
       type: DataTypes.JSON,
       allowNull: true,
+      field: 'metadata',
     },
   }, {
     tableName: 'payments',
     timestamps: true,
-    underscored: true,
+    underscored: false,
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     indexes: [
       { fields: ['referenceCode'] },
-      { fields: ['user_id'] },
-      { fields: ['payment_intent_id'] },
+      { fields: ['userId'] },
+      { fields: ['paymentIntentId'] },
       { fields: ['status'] },
-      { fields: ['created_at'] },
+      { fields: ['createdAt'] },
     ],
   });
 
   Payment.associate = (models) => {
-    Payment.belongsTo(models.User, {
-      foreignKey: 'userId',
-      as: 'user',
-    });
     Payment.belongsTo(models.Trail, {
       foreignKey: 'referenceCode',
       targetKey: 'referenceCode',

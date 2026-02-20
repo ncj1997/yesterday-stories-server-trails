@@ -17,56 +17,55 @@ module.exports = (sequelize) => {
       },
     },
     userId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(255),
       allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
+      field: 'userId',
     },
     fileType: {
       type: DataTypes.ENUM('image', 'video'),
       allowNull: false,
+      field: 'fileType',
     },
     s3Key: {
       type: DataTypes.STRING(500),
       allowNull: false,
+      field: 's3Key',
     },
     s3Url: {
       type: DataTypes.STRING(1000),
       allowNull: false,
+      field: 's3Url',
     },
     mimeType: {
       type: DataTypes.STRING(100),
       allowNull: true,
+      field: 'mimeType',
     },
     fileSize: {
       type: DataTypes.BIGINT,
       allowNull: true,
+      field: 'fileSize',
     },
     metadata: {
       type: DataTypes.JSON,
       allowNull: true,
+      field: 'metadata',
     },
   }, {
     tableName: 'files',
     timestamps: true,
-    underscored: true,
+    underscored: false,
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     indexes: [
       { fields: ['referenceCode'] },
-      { fields: ['user_id'] },
-      { fields: ['file_type'] },
-      { fields: ['created_at'] },
+      { fields: ['userId'] },
+      { fields: ['fileType'] },
+      { fields: ['createdAt'] },
     ],
   });
 
   File.associate = (models) => {
-    File.belongsTo(models.User, {
-      foreignKey: 'userId',
-      as: 'user',
-    });
     File.belongsTo(models.Trail, {
       foreignKey: 'referenceCode',
       targetKey: 'referenceCode',
