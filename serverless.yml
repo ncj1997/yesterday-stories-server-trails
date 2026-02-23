@@ -18,7 +18,6 @@ provider:
     DB_NAME: ${env:DB_NAME, 'yesterday_stories'}
     
     # AWS Configuration
-    AWS_REGION: ${self:provider.region}
     S3_BUCKET: ${self:custom.s3BucketName}
     
     # Environment Stage
@@ -67,13 +66,9 @@ functions:
           method: delete
           cors: true
       
-      # File Uploads
+      # File Uploads - Batch presigned URLs only
       - http:
-          path: images
-          method: post
-          cors: true
-      - http:
-          path: videos
+          path: files/batch-presigned-urls
           method: post
           cors: true
       
@@ -89,15 +84,6 @@ functions:
           method: post
           cors: true
 
-  # Scheduled cleanup of expired drafts (run daily)
-  cleanupExpiredDrafts:
-    handler: src/handlers/cleanup.handler
-    events:
-      - schedule:
-          rate: cron(0 2 * * ? *)  # 2 AM UTC daily
-          enabled: true
-    timeout: 60
-
 # Plugins
 plugins:
   - serverless-offline
@@ -107,6 +93,13 @@ plugins:
 custom:
   s3BucketName: yesterday-stories-uploads-${sls:stage, 'dev'}-${env:AWS_ACCOUNT_ID, '123456789012'}
   
+  dotenv:
+    exclude:
+      - AWS_REGION
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_ACCOUNT_ID
+
   serverless-offline:
     httpPort: 3001
     websocketPort: 3002
@@ -119,6 +112,9 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.s3BucketName}
+        OwnershipControls:
+          Rules:
+            - ObjectOwnership: BucketOwnerPreferred
         PublicAccessBlockConfiguration:
           BlockPublicAcls: false
           BlockPublicPolicy: false
@@ -134,7 +130,7 @@ resources:
                 - POST
               AllowedOrigins:
                 - '*'
-              MaxAgeSeconds: 3000
+              MaxAge: 3000
         Tags:
           - Key: Environment
             Value: ${sls:stage}
@@ -145,7 +141,7 @@ resources:
       Type: AWS::S3::BucketPolicy
       Properties:
         Bucket: !Ref S3BucketForUploads
-        PolicyText:
+        PolicyDocument:
           Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -153,16 +149,21 @@ resources:
               Action: 's3:GetObject'
               Resource: !Sub '${S3BucketForUploads.Arn}/*'
 
-outputs:
-  ApiEndpoint:
-    Description: API Gateway endpoint URL
-    Value:
-      Fn::Sub: 'https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}'
-  
-  S3BucketName:
-    Description: S3 Bucket for file uploads
-    Value: !Ref S3BucketForUploads
-  
-  S3BucketArn:
-    Description: S3 Bucket ARN
-    Value: !GetAtt S3BucketForUploads.Arn
+  Outputs:
+    ApiEndpoint:
+      Description: API Gateway endpoint URL
+      Value:
+        Fn::Join:
+          - ''
+          - - 'https://'
+            - !Ref ApiGatewayRestApi
+            - '.execute-api.'
+            - !Ref 'AWS::Region'
+            - '.amazonaws.com/'
+            - '${sls:stage}'
+    S3BucketName:
+      Description: S3 Bucket for file uploads
+      Value: !Ref S3BucketForUploads
+    S3BucketArn:
+      Description: S3 Bucket ARN
+      Value: !GetAtt S3BucketForUploads.Arn

@@ -25,7 +25,7 @@ const httpResponse = {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ error: message }),
+      body: JSON.stringify({ error: message, success: false }),
     };
   },
 

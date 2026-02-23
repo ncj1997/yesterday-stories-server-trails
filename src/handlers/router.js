@@ -53,16 +53,10 @@ const router = async (event, context) => {
       }
     }
 
-    // File Upload Routes
-    if (path.startsWith('/images')) {
-      if (httpMethod === 'POST') {
-        return filesHandlers.uploadImage(event);
-      }
-    }
-
-    if (path.startsWith('/videos')) {
-      if (httpMethod === 'POST') {
-        return filesHandlers.uploadVideo(event);
+    // File Upload Routes - Batch presigned URLs only
+    if (path.startsWith('/files')) {
+      if (httpMethod === 'POST' && path.includes('/batch-presigned-urls')) {
+        return filesHandlers.getFileBatchPresignedUrls(event);
       }
     }
 

@@ -61,9 +61,9 @@ module.exports = (sequelize) => {
       },
     },
     status: {
-      type: DataTypes.ENUM('draft', 'payment_pending', 'payment_completed', 'payment_failed', 'expired', 'submitted', 'completed'),
+      type: DataTypes.ENUM('free_draft', 'paid_draft', 'payment_pending', 'payment_completed', 'payment_failed', 'submitted', 'completed', 'free_published', 'paid_published'),
       allowNull: false,
-      defaultValue: 'draft',
+      defaultValue: 'free_draft',
     },
     isPaid: {
       type: DataTypes.BOOLEAN,
@@ -81,11 +81,6 @@ module.exports = (sequelize) => {
       type: DataTypes.DATE,
       allowNull: true,
       field: 'publishedAt',
-    },
-    expiresAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'expiresAt',
     },
   }, {
     tableName: 'trails',

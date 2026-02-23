@@ -92,16 +92,21 @@ const initializeDatabase = async () => {
         referenceCode VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
         title VARCHAR(255),
         description LONGTEXT,
+        category VARCHAR(100),
+        categoryId INT,
         latitude DECIMAL(10, 8),
         longitude DECIMAL(11, 8),
         imageUrl VARCHAR(1000),
         videoUrl VARCHAR(1000),
         orderIndex INT,
+        isPublished BOOLEAN DEFAULT FALSE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (referenceCode) REFERENCES trails(referenceCode) ON DELETE CASCADE,
         INDEX idx_referenceCode (referenceCode),
-        INDEX idx_orderIndex (orderIndex)
+        INDEX idx_orderIndex (orderIndex),
+        INDEX idx_categoryId (categoryId),
+        INDEX idx_isPublished (isPublished)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 

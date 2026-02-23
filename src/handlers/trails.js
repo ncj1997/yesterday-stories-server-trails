@@ -29,7 +29,7 @@ const saveTrail = async (event) => {
     }
 
     const body = parseBody(event);
-    const { referenceCode, trailData } = body;
+    const { referenceCode, trailData, isPublished } = body;
     
     // Use authenticated user ID from token, not from request body
     const userId = auth.userId;
@@ -39,6 +39,11 @@ const saveTrail = async (event) => {
     console.log(`[TRAIL] Reference Code: ${referenceCode}`);
     console.log(`[TRAIL] User ID: ${userId}`);
     console.log(`[TRAIL] User Email: ${userEmail}`);
+    console.log(`[TRAIL] Publish Requested: ${isPublished || false}`);
+    console.log(`[TRAIL] Full body keys:`, Object.keys(body));
+    if (body.isPaid !== undefined) {
+      console.log(`[TRAIL] ⚠️  WARNING: isPaid found in request body: ${body.isPaid}`);
+    }
 
     // Validate required fields
     if (!referenceCode || !trailData) {
@@ -48,12 +53,83 @@ const saveTrail = async (event) => {
       );
     }
 
+    // Check if trail already exists
+    const existingTrail = await trailsService.getTrail(referenceCode);
+    
+    if (existingTrail) {
+      console.log(`[TRAIL] Trail ${referenceCode} already exists. Checking ownership...`);
+      
+      // Verify user owns this trail
+      if (existingTrail.userId !== userId) {
+        console.warn(`[TRAIL] ❌ User ${userId} does not own trail ${referenceCode} (owner: ${existingTrail.userId})`);
+        return httpResponse.error(
+          'Trail with this reference code already exists and belongs to another user',
+          409
+        );
+      }
+      
+      // User owns the trail - update it instead
+      console.log(`[TRAIL] User owns trail. Updating existing trail instead of creating new one...`);
+      
+      try {
+        // Only pass the fields we want to update, never isPaid from frontend
+        const updateData = {
+          trailData,
+          isPublished: isPublished || false
+          // NOTE: isPaid should NEVER be set from frontend, only via payment webhook
+        };
+        
+        // Safeguard: Remove any isPaid that might be in the body or trailData
+        if (body.isPaid !== undefined) {
+          console.log(`[TRAIL] ⚠️  WARNING: Ignoring isPaid from request body - this should only be set via payment webhook`);
+        }
+        if (trailData && trailData.isPaid !== undefined) {
+          console.log(`[TRAIL] ⚠️  WARNING: Ignoring isPaid from trailData - this should only be set via payment webhook`);
+          delete trailData.isPaid;
+        }
+        
+        console.log(`[TRAIL] Update data:`, { hasTrailData: !!updateData.trailData, isPublished: updateData.isPublished });
+        
+        const success = await trailsService.updateTrail(referenceCode, updateData);
+        
+        if (!success) {
+          console.error(`[TRAIL] ❌ Failed to update existing trail`);
+          return httpResponse.serverError('Failed to update trail');
+        }
+        
+        // Get updated trail
+        const updatedTrail = await trailsService.getTrail(referenceCode);
+        
+        console.log(`[TRAIL] ✅ Trail updated successfully`);
+        console.log(`[TRAIL] Status: ${updatedTrail.status}`);
+        
+        return httpResponse.success({
+          success: true,
+          message: 'Trail updated successfully',
+          referenceCode: updatedTrail.referenceCode,
+          status: updatedTrail.status,
+          expiresAt: updatedTrail.expiresAt,
+        });
+      } catch (error) {
+        if (error.message === 'PAYMENT_REQUIRED') {
+          console.warn(`[TRAIL] ❌ Cannot publish - payment required`);
+          return httpResponse.error(
+            'Cannot publish trail with more than 5 stories. Payment is required.',
+            400
+          );
+        }
+        throw error;
+      }
+    }
+    
+    // Trail doesn't exist - create new one
     try {
       const result = await trailsService.saveTrail(
         referenceCode,
         userId,
         userEmail,
-        trailData
+        trailData,
+        isPublished || false
       );
 
       console.log(`[TRAIL] ✅ Trail created successfully`);
@@ -70,11 +146,11 @@ const saveTrail = async (event) => {
         201
       );
     } catch (error) {
-      // Check if it's a duplicate key error
-      if (error.code === 'ER_DUP_ENTRY') {
+      // Check if it's a duplicate key error (race condition)
+      if (error.code === 'ER_DUP_ENTRY' || error.name === 'SequelizeUniqueConstraintError') {
         console.warn(`[TRAIL] ❌ Duplicate reference code: ${referenceCode}`);
         return httpResponse.error(
-          'Duplicate reference code. Please use a unique reference code.',
+          'Duplicate reference code. Please try again.',
           409
         );
       }
@@ -224,7 +300,33 @@ const updateTrailData = async (event) => {
       trailData: body.trailData,
     };
 
-    const success = await trailsService.updateTrail(referenceCode, updateData);
+    // Safeguard: Remove any isPaid that might be in the body or trailData
+    if (body.isPaid !== undefined) {
+      console.log(`[TRAIL] ⚠️  WARNING: Ignoring isPaid from request body - this should only be set via payment webhook`);
+    }
+    if (body.trailData && body.trailData.isPaid !== undefined) {
+      console.log(`[TRAIL] ⚠️  WARNING: Ignoring isPaid from trailData - this should only be set via payment webhook`);
+      delete body.trailData.isPaid;
+    }
+
+    // Handle publish/unpublish request
+    if (body.isPublished !== undefined) {
+      updateData.isPublished = body.isPublished;
+    }
+
+    let success;
+    try {
+      success = await trailsService.updateTrail(referenceCode, updateData);
+    } catch (error) {
+      if (error.message === 'PAYMENT_REQUIRED') {
+        console.warn(`[TRAIL] ❌ Cannot publish - payment required`);
+        return httpResponse.error(
+          'Cannot publish trail with more than 5 stories. Payment is required.',
+          400
+        );
+      }
+      throw error;
+    }
 
     if (!success) {
       console.error(`[TRAIL] ❌ Failed to update trail: ${referenceCode}`);
@@ -420,7 +522,7 @@ const updateTrailStatus = async (event) => {
     }
 
     // Valid statuses
-    const validStatuses = ['draft', 'payment_pending', 'payment_completed', 'payment_failed', 'expired'];
+    const validStatuses = ['free_draft', 'paid_draft', 'payment_pending', 'payment_completed', 'payment_failed', 'submitted', 'completed', 'free_published', 'paid_published'];
     if (!validStatuses.includes(body.status)) {
       return httpResponse.error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }

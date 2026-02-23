@@ -24,6 +24,11 @@ module.exports = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    categoryId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'categoryId',
+    },
     latitude: {
       type: DataTypes.DECIMAL(10, 8),
       allowNull: true,
@@ -46,6 +51,12 @@ module.exports = (sequelize) => {
       defaultValue: 0,
       field: 'orderIndex',
     },
+    isPublished: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'isPublished',
+    },
   }, {
     tableName: 'custom_stories',
     timestamps: true,
@@ -55,6 +66,8 @@ module.exports = (sequelize) => {
     indexes: [
       { fields: ['referenceCode'] },
       { fields: ['orderIndex'] },
+      { fields: ['categoryId'] },
+      { fields: ['isPublished'] },
     ],
   });
 

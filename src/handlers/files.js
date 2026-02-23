@@ -191,7 +191,130 @@ const uploadVideo = async (event) => {
   }
 };
 
+/**
+ * POST /files/presigned-url
+ * Unified endpoint for both images and videos
+ * Auto-detects file type from contentType
+ * REQUIRES AUTH
+ */
+const getFilePresignedUrl = async (event) => {
+  try {
+    const auth = await verifyAuthToken(event);
+    if (!auth.authenticated) {
+      console.warn(`[FILES] ❌ Authentication failed: ${auth.message}`);
+      return httpResponse.error(auth.message, 401);
+    }
+
+    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body || {};
+    const { fileName, contentType } = body;
+
+    if (!fileName || typeof fileName !== 'string') {
+      return httpResponse.error('fileName is required', 400);
+    }
+
+    // Prevent path traversal
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return httpResponse.error('Invalid fileName', 400);
+    }
+
+    // Auto-detect file type from contentType
+    let fileType;
+    if (filesService.ALLOWED_IMAGE_TYPES.includes(contentType)) {
+      fileType = 'image';
+    } else if (filesService.ALLOWED_VIDEO_TYPES.includes(contentType)) {
+      fileType = 'video';
+    } else {
+      return httpResponse.error(
+        `Unsupported contentType: ${contentType}. Allowed: ${[...filesService.ALLOWED_IMAGE_TYPES, ...filesService.ALLOWED_VIDEO_TYPES].join(', ')}`,
+        400
+      );
+    }
+
+    const presignedUrl = await filesService.getPresignedUploadUrl(
+      auth.userId,
+      fileName,
+      contentType,
+      fileType
+    );
+
+    return httpResponse.success({ 
+      presignedUrl, 
+      success: true,
+      fileType,
+      expiresIn: 1800
+    });
+  } catch (error) {
+    console.error('❌ Error generating file presigned URL:', error);
+    return httpResponse.serverError('Failed to generate presigned URL');
+  }
+};
+
+/**
+ * POST /files/batch-presigned-urls
+ * Unified batch endpoint for both images and videos
+ * REQUIRES AUTH
+ */
+const getFileBatchPresignedUrls = async (event) => {
+  try {
+    const auth = await verifyAuthToken(event);
+    if (!auth.authenticated) {
+      console.warn(`[FILES] ❌ Authentication failed: ${auth.message}`);
+      return httpResponse.error(auth.message, 401);
+    }
+
+    let body;
+    try {
+      body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body || {};
+    } catch (parseError) {
+      console.error('[FILES] ❌ JSON Parse Error:', parseError.message);
+      console.error('[FILES] Body received:', event.body);
+      return httpResponse.error('Invalid JSON format in request body', 400);
+    }
+
+    const { files } = body;
+
+    if (!Array.isArray(files) || files.length === 0) {
+      return httpResponse.error('files array is required', 400);
+    }
+
+    if (files.length > 50) {
+      return httpResponse.error('Maximum 50 files per batch', 400);
+    }
+
+    // Auto-detect file types and validate
+    const filesWithType = files.map(file => {
+      let fileType;
+      if (filesService.ALLOWED_IMAGE_TYPES.includes(file.contentType)) {
+        fileType = 'image';
+      } else if (filesService.ALLOWED_VIDEO_TYPES.includes(file.contentType)) {
+        fileType = 'video';
+      } else {
+        fileType = 'unknown';
+      }
+
+      return {
+        fileName: file.fileName,
+        contentType: file.contentType,
+        fileType,
+      };
+    });
+
+    const results = await filesService.getBatchPresignedUrls(auth.userId, filesWithType);
+
+    return httpResponse.success({
+      success: true,
+      count: results.length,
+      files: results,
+    });
+  } catch (error) {
+    console.error('❌ Error generating batch presigned URLs:', error);
+    return httpResponse.serverError('Failed to generate batch presigned URLs');
+  }
+};
+
 module.exports = {
   uploadImage,
   uploadVideo,
+  getFilePresignedUrl,
+  getFileBatchPresignedUrls,
 };

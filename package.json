@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "serverless offline start",
-    "dev": "serverless offline start --httpPort 3001",
+    "dev": "nodemon --exec \"serverless offline start --httpPort 3001\" --ext js,json --ignore node_modules/",
+    "dev:no-watch": "serverless offline start --httpPort 3001",
     "db:init": "node src/db/init.js",
     "deploy": "serverless deploy",
     "deploy:prod": "serverless deploy --stage prod",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "jest": "^29.7.0",
+    "nodemon": "^3.1.14",
     "serverless": "^3.34.0",
     "serverless-dotenv-plugin": "^4.0.2",
     "serverless-offline": "^13.2.0"

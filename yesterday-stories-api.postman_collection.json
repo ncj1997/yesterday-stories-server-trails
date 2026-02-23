@@ -196,7 +196,7 @@
               "host": ["{{base_url}}"],
               "path": ["trails", "{{reference_code}}", "status"]
             },
-            "description": "Update trail status (draft, payment_pending, payment_completed, payment_failed, expired, submitted, completed)"
+            "description": "Update trail status (free_draft, paid_draft, payment_pending, payment_completed, payment_failed, submitted, completed, free_published, paid_published)"
           },
           "response": []
         },
