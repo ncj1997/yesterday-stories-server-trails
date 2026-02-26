@@ -7,12 +7,11 @@ const { getModels } = require('../models');
 const { Op } = require('sequelize');
 
 /**
- * Helper: Determine if payment is required based on number of custom stories
- * Rule: <= 5 stories = free, > 5 stories = payment required
+ * Helper: Determine if payment is required
+ * Rule: All trails require payment (no free trails)
  */
 const isPaymentRequired = (customStories) => {
-  const storyCount = customStories ? customStories.length : 0;
-  return storyCount > 5;
+  return true;
 };
 
 /**
@@ -71,18 +70,17 @@ const trailsService = {
     try {
       const { Trail, CustomStory } = getModels();
 
-      // Determine if payment is required (more than 5 stories)
+      // All trails require payment now
       const paymentRequired = isPaymentRequired(trailData.customStories);
-      let initialStatus = paymentRequired ? 'paid_draft' : 'free_draft';
+      let initialStatus = 'payment_pending';
       let publishedAt = null;
 
-      // If user wants to publish and it's free (<=5 stories), set to submitted
+      // Cannot publish without payment
       if (isPublished && !paymentRequired) {
-        initialStatus = 'submitted';
-        publishedAt = new Date();
-        console.log(`[DB] Publishing free trail immediately`);
+        // This branch will never execute as paymentRequired is always true
+        console.log(`[DB] Cannot publish - payment required`);
       } else if (isPublished && paymentRequired) {
-        console.log(`[DB] Cannot publish - payment required for ${trailData.customStories.length} stories`);
+        console.log(`[DB] Cannot publish - payment required for trail`);
       }
 
       console.log(`[DB] Creating trail for Firebase user: ${userId}`);
@@ -180,6 +178,7 @@ const trailsService = {
         status: draft.status,
         isPaid: draft.isPaid,
         paymentRequired: paymentRequired,
+        publishedAt: draft.publishedAt,
         createdAt: draft.createdAt,
       };
     } catch (error) {
@@ -225,6 +224,7 @@ const trailsService = {
         status: trail.status,
         isPaid: trail.isPaid,
         paymentRequired: isPaymentRequired(trail.customStories),
+        publishedAt: trail.publishedAt,
         createdAt: trail.createdAt,
       }));
     } catch (error) {
@@ -301,42 +301,29 @@ const trailsService = {
             await CustomStory.bulkCreate(stories);
           }
 
-          // Update status based on new story count if not yet paid
+          // Update status based on payment status
           if (!draft.isPaid) {
-            const paymentRequired = isPaymentRequired(trailData.customStories);
-            // If already published (submitted), keep it published only if still <=5 stories
-            if (draft.status === 'submitted' && paymentRequired) {
-              draft.status = 'payment_pending';
-              draft.publishedAt = null;
-              console.log(`[DB] Unpublished trail - now exceeds 5 stories, requires payment`);
-            } else if (draft.status !== 'submitted') {
-              draft.status = paymentRequired ? 'payment_pending' : 'draft';
-              console.log(`[DB] Updated status to '${draft.status}' based on ${trailData.customStories.length} stories`);
-            }
+            // All trails require payment
+            draft.status = 'payment_pending';
+            draft.publishedAt = null;
+            console.log(`[DB] Updated status to 'payment_pending' - all trails require payment`);
           }
         }
       }
 
       // Handle publish request
       if (updates.isPublished !== undefined) {
-        const currentStoryCount = draft.customStories ? draft.customStories.length : 0;
-        const paymentRequired = currentStoryCount > 5;
-
         if (updates.isPublished && !draft.isPaid) {
-          if (paymentRequired) {
-            console.log(`[DB] Cannot publish - payment required for ${currentStoryCount} stories`);
-            throw new Error('PAYMENT_REQUIRED');
-          } else {
-            // Publish free trail
-            draft.status = 'submitted';
-            draft.publishedAt = new Date();
-            console.log(`[DB] Published free trail with ${currentStoryCount} stories`);
-          }
-        } else if (!updates.isPublished && draft.status === 'submitted') {
-          // Unpublish
-          draft.status = 'draft';
+          console.log(`[DB] Cannot publish - payment required`);
+          throw new Error('PAYMENT_REQUIRED');
+        } else if (updates.isPublished && draft.isPaid) {
+          // Publish paid trail
+          draft.publishedAt = new Date();
+          console.log(`[DB] Published paid trail`);
+        } else if (!updates.isPublished && draft.isPaid && draft.publishedAt) {
+          // Unpublish paid trail (reset publishedAt)
           draft.publishedAt = null;
-          console.log(`[DB] Unpublished trail`);
+          console.log(`[DB] Unpublished paid trail`);
         }
       }
 
@@ -411,19 +398,17 @@ const trailsService = {
   },
 
   /**
-   * Get published trails (paid or free published)
-   * Returns trails where isPaid=true OR status='submitted'
+   * Get published trails
+   * Returns trails where isPaid=true AND publishedAt is not null
    */
   async getPublishedTrails(options = {}) {
     try {
-      const { Trail, User, CustomStory } = getModels();
+      const { Trail, CustomStory } = getModels();
       const { sortBy = 'distance', difficulty, limit = 50, offset = 0 } = options;
 
       const whereClause = {
-        [Op.or]: [
-          { isPaid: true },
-          { status: 'submitted' },
-        ],
+        isPaid: true,
+        publishedAt: { [Op.ne]: null },
         isDeleted: false,
       };
 
@@ -443,11 +428,6 @@ const trailsService = {
       const trails = await Trail.findAll({
         where: whereClause,
         include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['userId'],
-          },
           {
             model: CustomStory,
             as: 'customStories',
@@ -476,7 +456,7 @@ const trailsService = {
           imageUrl: story.imageUrl,
           videoUrl: story.videoUrl,
         })),
-        userId: trail.user.userId,
+        userId: trail.userId,
         publishedAt: trail.publishedAt,
         distanceToTrail: -1, // Would be calculated if user location provided
       }));
@@ -487,8 +467,18 @@ const trailsService = {
   },
 
   /**
-   * Clean up expired drafts (run via scheduled Lambda)
+   * Clean up expired drafts (stub - no longer used with payment-based system)
+   * Kept for backward compatibility with cleanup handler
    */
+  async cleanupExpiredDrafts() {
+    try {
+      console.log('[DB] Cleanup called - no action needed (payment-based system)');
+      return 0;
+    } catch (error) {
+      console.error('❌ Error in cleanupExpiredDrafts:', error);
+      throw error;
+    }
+  },
 
 };
 

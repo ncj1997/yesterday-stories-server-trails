@@ -522,7 +522,7 @@ const updateTrailStatus = async (event) => {
     }
 
     // Valid statuses
-    const validStatuses = ['free_draft', 'paid_draft', 'payment_pending', 'payment_completed', 'payment_failed', 'submitted', 'completed', 'free_published', 'paid_published'];
+    const validStatuses = ['payment_pending', 'payment_completed', 'payment_failed'];
     if (!validStatuses.includes(body.status)) {
       return httpResponse.error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }

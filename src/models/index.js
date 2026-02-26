@@ -2,6 +2,7 @@
  * Models Index - Initialize all Sequelize models and associations
  * Note: Firebase Auth handles users - no User table needed
  * Note: Files are stored as URLs in trails and customStories - no File table needed
+ * Note: Stripe handles payments - no Payment table needed (not stored in DB)
  */
 
 const { getSequelize } = require('../db/sequelize');
@@ -9,7 +10,6 @@ const { getSequelize } = require('../db/sequelize');
 // Import model definitions
 const TrailModel = require('./Trail');
 const CustomStoryModel = require('./CustomStory');
-const PaymentModel = require('./Payment');
 
 let models = null;
 
@@ -24,7 +24,6 @@ const initializeModels = () => {
   models = {
     Trail: TrailModel(sequelize),
     CustomStory: CustomStoryModel(sequelize),
-    Payment: PaymentModel(sequelize),
   };
 
   // Set up associations

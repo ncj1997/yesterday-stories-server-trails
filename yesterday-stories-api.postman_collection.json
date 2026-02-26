@@ -189,14 +189,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"submitted\"\n}\n"
+              "raw": "{\n  \"status\": \"payment_completed\"\n}\n"
             },
             "url": {
               "raw": "{{base_url}}/trails/{{reference_code}}/status",
               "host": ["{{base_url}}"],
               "path": ["trails", "{{reference_code}}", "status"]
             },
-            "description": "Update trail status (free_draft, paid_draft, payment_pending, payment_completed, payment_failed, submitted, completed, free_published, paid_published)"
+            "description": "Update trail status (payment_pending, payment_completed, payment_failed)"
           },
           "response": []
         },

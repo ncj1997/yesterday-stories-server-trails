@@ -44,20 +44,7 @@ const query = async (sql, values = []) => {
 const initializeDatabase = async () => {
   const connection = await getConnection();
   try {
-    // Create users table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        userId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_userId (userId),
-        INDEX idx_email (email)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
-    `);
-
-    // Create trails table (replaces draft_trails)
+    // Create trails table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS trails (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -69,19 +56,17 @@ const initializeDatabase = async () => {
         distance DECIMAL(10, 2) DEFAULT 0,
         headerImages LONGTEXT,
         headerVideos LONGTEXT,
-        status ENUM('draft', 'payment_pending', 'payment_completed', 'payment_failed', 'expired', 'submitted', 'completed') DEFAULT 'draft',
+        status ENUM('payment_pending', 'payment_completed', 'payment_failed') DEFAULT 'payment_pending',
         isPaid BOOLEAN DEFAULT FALSE,
         isDeleted BOOLEAN DEFAULT FALSE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         publishedAt TIMESTAMP NULL,
-        expiresAt TIMESTAMP NOT NULL,
         INDEX idx_referenceCode (referenceCode),
         INDEX idx_userId (userId),
         INDEX idx_status (status),
         INDEX idx_isPaid (isPaid),
         INDEX idx_createdAt (createdAt),
-        INDEX idx_expiresAt (expiresAt),
         INDEX idx_publishedAt (publishedAt)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
@@ -107,42 +92,6 @@ const initializeDatabase = async () => {
         INDEX idx_orderIndex (orderIndex),
         INDEX idx_categoryId (categoryId),
         INDEX idx_isPublished (isPublished)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
-    `);
-
-    // Create tokens table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS tokens (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        userId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-        token VARCHAR(500) NOT NULL UNIQUE,
-        expiresAt TIMESTAMP NOT NULL,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_userId (userId),
-        INDEX idx_token (token),
-        INDEX idx_expiresAt (expiresAt)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
-    `);
-
-    // Create payments table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS payments (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        referenceCode VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-        userId VARCHAR(255) NOT NULL,
-        paymentIntentId VARCHAR(255),
-        amount BIGINT NOT NULL,
-        currency VARCHAR(3) DEFAULT 'AUD',
-        status ENUM('pending', 'completed', 'failed', 'canceled') DEFAULT 'pending',
-        metadata JSON,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (referenceCode) REFERENCES trails(referenceCode) ON DELETE CASCADE,
-        INDEX idx_referenceCode (referenceCode),
-        INDEX idx_userId (userId),
-        INDEX idx_paymentIntentId (paymentIntentId),
-        INDEX idx_status (status),
-        INDEX idx_createdAt (createdAt)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 

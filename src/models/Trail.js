@@ -61,9 +61,9 @@ module.exports = (sequelize) => {
       },
     },
     status: {
-      type: DataTypes.ENUM('free_draft', 'paid_draft', 'payment_pending', 'payment_completed', 'payment_failed', 'submitted', 'completed', 'free_published', 'paid_published'),
+      type: DataTypes.ENUM('payment_pending', 'payment_completed', 'payment_failed'),
       allowNull: false,
-      defaultValue: 'free_draft',
+      defaultValue: 'payment_pending',
     },
     isPaid: {
       type: DataTypes.BOOLEAN,
@@ -96,7 +96,6 @@ module.exports = (sequelize) => {
       { fields: ['difficulty'] },
       { fields: ['distance'] },
       { fields: ['createdAt'] },
-      { fields: ['expiresAt'] },
       { fields: ['publishedAt'] },
     ],
   });
@@ -106,11 +105,6 @@ module.exports = (sequelize) => {
       foreignKey: 'referenceCode',
       sourceKey: 'referenceCode',
       as: 'customStories',
-    });
-    Trail.hasMany(models.Payment, {
-      foreignKey: 'referenceCode',
-      sourceKey: 'referenceCode',
-      as: 'payments',
     });
   };
 
