@@ -43,7 +43,7 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.1.14",
-    "serverless": "^3.34.0",
+    "serverless": "^3.40.0",
     "serverless-dotenv-plugin": "^4.0.2",
     "serverless-offline": "^13.2.0"
   },

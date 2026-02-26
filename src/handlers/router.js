@@ -29,6 +29,10 @@ const router = async (event, context) => {
         if (path.includes('/my') || path.endsWith('/my')) {
           return trailsHandlers.getUserTrails(event);
         }
+        // GET /trails or /trails/published - public
+        if (path === '/trails' || path === '/trails/' || path.includes('/published')) {
+          return trailsHandlers.getPublishedTrails(event);
+        }
         // GET /trails/:code - public
         return trailsHandlers.getTrail(event);
       }
