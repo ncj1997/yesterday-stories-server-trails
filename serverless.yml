@@ -19,6 +19,8 @@ provider:
     
     # AWS Configuration
     S3_BUCKET: ${self:custom.s3BucketName}
+    MY_AWS_KEY: ${self:custom.awsAccessKey}
+    MY_AWS_SECRET: ${self:custom.awsSecretKey}
     
     # Environment Stage
     STAGE: ${sls:stage}
@@ -91,7 +93,10 @@ plugins:
 
 # Custom settings
 custom:
-  s3BucketName: yesterday-stories-uploads-${sls:stage, 'dev'}-${env:AWS_ACCOUNT_ID, '123456789012'}
+  s3BucketName: yesterday-stories-uploads-${sls:stage}
+  # Store credentials - will be loaded from .env by dotenv plugin
+  awsAccessKey: ${env:AWS_ACCESS_KEY_ID, 'AKIAQZHZ4E6SGDXFLL7U'}
+  awsSecretKey: ${env:AWS_SECRET_ACCESS_KEY, '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'}
   
   dotenv:
     exclude:
@@ -99,6 +104,7 @@ custom:
       - AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY
       - AWS_ACCOUNT_ID
+    # Credentials are read by serverless for custom section, then passed as MY_AWS_KEY/MY_AWS_SECRET
 
   serverless-offline:
     httpPort: 3001
@@ -112,9 +118,6 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.s3BucketName}
-        OwnershipControls:
-          Rules:
-            - ObjectOwnership: BucketOwnerPreferred
         PublicAccessBlockConfiguration:
           BlockPublicAcls: false
           BlockPublicPolicy: false
@@ -128,6 +131,7 @@ resources:
                 - GET
                 - PUT
                 - POST
+                - DELETE
               AllowedOrigins:
                 - '*'
               MaxAge: 3000
@@ -144,9 +148,18 @@ resources:
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
+            # Allow public read access
             - Effect: Allow
               Principal: '*'
               Action: 's3:GetObject'
+              Resource: !Sub '${S3BucketForUploads.Arn}/*'
+            
+            # Allow uploads via presigned URLs
+            - Effect: Allow
+              Principal: '*'
+              Action:
+                - 's3:PutObject'
+                - 's3:DeleteObject'
               Resource: !Sub '${S3BucketForUploads.Arn}/*'
 
   Outputs:

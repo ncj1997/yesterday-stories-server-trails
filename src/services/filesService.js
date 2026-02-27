@@ -6,12 +6,26 @@
 const AWS = require('aws-sdk');
 const { v4: uuidv4 } = require('uuid');
 
-// Initialize S3 with AWS credentials
-const s3 = new AWS.S3({
+// Initialize S3 with permanent credentials for presigned URLs
+// Temporary IAM role credentials cause presigned URL failures
+const s3Config = {
   region: process.env.AWS_REGION || 'us-east-1',
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-});
+  signatureVersion: 'v4',
+};
+
+// Use permanent IAM user credentials (passed as custom env vars to avoid AWS reserved names)
+const accessKey = process.env.MY_AWS_KEY || process.env.AWS_ACCESS_KEY_ID;
+const secretKey = process.env.MY_AWS_SECRET || process.env.AWS_SECRET_ACCESS_KEY;
+
+if (accessKey && secretKey) {
+  s3Config.accessKeyId = accessKey;
+  s3Config.secretAccessKey = secretKey;
+  console.log('[FILES] 🔑 Using permanent IAM credentials for presigned URLs');
+} else {
+  console.log('[FILES] ⚠️ No credentials found, using IAM role (may cause presigned URL issues)');
+}
+
+const s3 = new AWS.S3(s3Config);
 
 console.log('[FILES] 🌐 Using AWS S3 for file storage');
 
