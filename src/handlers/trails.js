@@ -380,11 +380,6 @@ const deleteTrail = async (event) => {
       return httpResponse.error('You do not have permission to delete this trail', 403);
     }
 
-    // Can only delete unpaid trails
-    if (trail.isPaid) {
-      return httpResponse.error('Cannot delete a trail that has already been paid', 400);
-    }
-
     const success = await trailsService.deleteTrail(referenceCode);
 
     if (!success) {
