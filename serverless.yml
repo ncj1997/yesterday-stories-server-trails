@@ -95,8 +95,8 @@ plugins:
 custom:
   s3BucketName: yesterday-stories-uploads-${sls:stage}
   # Store credentials - will be loaded from .env by dotenv plugin
-  awsAccessKey: ${env:AWS_ACCESS_KEY_ID, 'AKIAQZHZ4E6SGDXFLL7U'}
-  awsSecretKey: ${env:AWS_SECRET_ACCESS_KEY, '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'}
+  awsAccessKey: ${env:AWS_ACCESS_KEY_ID, ''}
+  awsSecretKey: ${env:AWS_SECRET_ACCESS_KEY, ''}
   
   dotenv:
     exclude:
